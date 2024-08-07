@@ -1,0 +1,42 @@
+# Git
+.git
+
+# Package
+package/*
+package-macos/*
+
+# Config
+config/*
+
+# Covers
+covers/*
+
+# SQLite
+sqlite/*
+
+# Node modules
+node_modules
+
+*.md
+
+# Storage
+VoiceWork
+
+# HTTPS
+kikoeru.crt
+kikoeru.key
+
+# Release template
+Release-Template.md
+
+# GitHub
+.github
+
+# Env
+.env
+
+# Use build artifact from muveex/kikoeru-quasar instead
+dist
+
+# GitHub Actions
+.github
