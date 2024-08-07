@@ -103,7 +103,7 @@ const logger = {
     },
     __internal_task__(taskId, level, msg) {
       console.assert(typeof taskId === "string" && (taskId.length === 6 || taskId.length === 8));
-      console[level](`-> [RJ${taskId}] `, msg);
+      console[level](`-> [RJ${taskId}]`, msg);
 
       const task = tasks.find((task) => task.rjcode === taskId);
       if (task) {
@@ -151,24 +151,24 @@ process.on("message", (m) => {
  * 通过数组 arr 中每个对象的 id 属性来对数组去重
  * @param {Array} arr
  */
-function uniqueFolderListSeparate(arr) {
-  const uniqueList = [];
-  const duplicateSet = {};
+function uniqueArr(arr) {
+  const unique = [];
+  const duplicate = {};
 
   for (let i = 0; i < arr.length; i++) {
     for (let j = i + 1; j < arr.length; j++) {
       if (arr[i].id === arr[j].id) {
-        duplicateSet[arr[i].id] = duplicate[arr[i].id] || [];
-        duplicateSet[arr[i].id].push(arr[i]);
+        duplicate[arr[i].id] = duplicate[arr[i].id] || [];
+        duplicate[arr[i].id].push(arr[i]);
         ++i;
       }
     }
-    uniqueList.push(arr[i]);
+    unique.push(arr[i]);
   }
 
   return {
-    uniqueList, // 去重后的数组
-    duplicateSet, // 对象，键为id，值为多余的重复项数组
+    unique, // 去重后的数组
+    duplicate, // 对象，键为id，值为多余的重复项数组
   };
 }
 
@@ -481,7 +481,7 @@ async function tryProcessFolderListParallel(folderList) {
 
   try {
     // 去重，避免在之后的并行处理文件夹过程中，出现对数据库同时写入同一条记录的错误
-    const { uniqueList: uniqueFolderList, duplicateSet } = uniqueFolderListSeparate(folderList);
+    const { uniqueList: uniqueFolderList, duplicateSet } = uniqueArr(folderList);
     const duplicateNum = folderList.length - uniqueFolderList.length;
 
     if (duplicateNum) {
@@ -581,7 +581,7 @@ async function updateMetadata(id, options = {}) {
   let scrapeProcessor = () => scrapeDynamicWorkMetadataFromDLsite(id);
   if (options.includeVA || options.includeTags || options.includeNSFW || options.refreshAll) {
     // static + dynamic
-    scrapeProcessor = () => scrapeWorkMetadataFromDLsite(id, config.tagLanguage);
+    scrapeProcessor = () => scrapeWorkMetadata(id, config.tagLanguage);
   }
 
   const rjcode = id;
@@ -628,7 +628,7 @@ async function fixVoiceActorBug() {
 
 async function refreshWorks(query, idColumnName, processor) {
   return query.then(async (works) => {
-    logger.main.info(` -> 共 ${works.length} 个音声. 开始刷新`);
+    logger.main.info(`共 ${works.length} 个音声. 开始刷新`);
 
     const counts = {
       updated: 0,
@@ -648,7 +648,7 @@ async function refreshWorks(query, idColumnName, processor) {
       })
     );
 
-    logger.main.log(` -> 完成元数据更新 ${counts.updated} 个，失败 ${counts.failed} 个.`);
+    logger.main.log(`完成元数据更新 ${counts.updated} 个，失败 ${counts.failed} 个.`);
     return counts;
     s;
   });
