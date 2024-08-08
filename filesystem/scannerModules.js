@@ -5,11 +5,12 @@ const LimitPromise = require("limit-promise"); // 限制并发数量
 const axios = require("../scraper/axios.js"); // 数据请求
 const { scrapeWorkMetadataFromDLsite, scrapeDynamicWorkMetadataFromDLsite } = require("../scraper/dlsite");
 const { scrapeWorkMetadataFromAsmrOne } = require("../scraper/asmrOne");
+const { scrapeWorkMemo } = require("../scraper/memo");
 
 const db = require("../database/db");
 const { createSchema } = require("../database/schema");
 
-const { getFolderList, deleteCoverImageFromDisk, saveCoverImageToDisk, getWorkDuration } = require("./utils");
+const { getFolderList, deleteCoverImageFromDisk, saveCoverImageToDisk } = require("./utils");
 const { md5 } = require("../auth/utils");
 const { nameToUUID } = require("../scraper/utils");
 
@@ -151,27 +152,33 @@ process.on("message", (m) => {
  * 通过数组 arr 中每个对象的 id 属性来对数组去重
  * @param {Array} arr
  */
-function uniqueArr(arr) {
-  const unique = [];
-  const duplicate = {};
+function uniqueFolderListSeparate(arr) {
+  const uniqueList = [];
+  const duplicateSet = {};
 
   for (let i = 0; i < arr.length; i++) {
     for (let j = i + 1; j < arr.length; j++) {
       if (arr[i].id === arr[j].id) {
-        duplicate[arr[i].id] = duplicate[arr[i].id] || [];
-        duplicate[arr[i].id].push(arr[i]);
+        duplicateSet[arr[i].id] = duplicateSet[arr[i].id] || [];
+        duplicateSet[arr[i].id].push(arr[i]);
         ++i;
       }
     }
-    unique.push(arr[i]);
+    uniqueList.push(arr[i]);
   }
 
   return {
-    unique, // 去重后的数组
-    duplicate, // 对象，键为id，值为多余的重复项数组
+    uniqueList, // 去重后的数组
+    duplicateSet, // 对象，键为id，值为多余的重复项数组
   };
 }
 
+/**
+ * 通过DLsite或asmr-one的方式爬取元数据（部分RJ号作品可能下架）
+ * @param {string} id
+ * @param {string} language
+ * @returns object对象
+ */
 async function scrapeWorkMetadata(id, language) {
   const rjcode = id;
   return scrapeWorkMetadataFromDLsite(id, language)
@@ -179,7 +186,7 @@ async function scrapeWorkMetadata(id, language) {
       return metadata;
     })
     .catch((err) => {
-      logger.task.warn(rjcode, `DLSite获取元数据失败: ${err.message}`);
+      logger.task.warn(rjcode, `DLsite获取元数据失败: ${err.message}`);
       return scrapeWorkMetadataFromAsmrOne(id, language)
         .then((metadata) => {
           return metadata;
@@ -200,32 +207,24 @@ async function scrapeWorkMetadata(id, language) {
 async function getMetadata(folder, tagLanguage) {
   const rjcode = folder.id;
 
-  // 先从DLSite抓取元数据，若失败则从asmr-one抓取元数据
+  // 先从DLsite抓取元数据，若失败则从asmr-one抓取元数据
   return scrapeWorkMetadata(folder.id, tagLanguage)
     .then((metadata) => {
       logger.task.info(rjcode, "元数据抓取成功，准备获取作品播放时长...");
-      return getWorkDuration(folder.id, folder.absolutePath)
-        .then((duration) => {
-          logger.task.info(rjcode, "作品播放时长获取成功，准备添加到数据库...");
+      logger.task.info(rjcode, "作品播放时长获取成功，准备添加到数据库...");
 
-          metadata.rootFolderName = folder.rootFolderName;
-          metadata.dir = folder.relativePath;
-          metadata.addTime = folder.addTime;
-          metadata.duration = duration;
+      metadata.rootFolderName = folder.rootFolderName;
+      metadata.dir = folder.relativePath;
+      metadata.addTime = folder.addTime;
 
-          return db
-            .insertWorkMetadata(metadata)
-            .then(() => {
-              logger.task.info(rjcode, "元数据成功添加到数据库.");
-              return "added";
-            })
-            .catch((err) => {
-              logger.task.warn(rjcode, `元数据添加失败: ${err.message}`);
-              return "failed";
-            });
+      return db
+        .insertWorkMetadata(metadata)
+        .then(() => {
+          logger.task.info(rjcode, "元数据成功添加到数据库.");
+          return "added";
         })
         .catch((err) => {
-          logger.task.warn(`作品播放时长获取失败: ${err.message}`);
+          logger.task.warn(rjcode, `元数据添加失败: ${err.message}`);
           return "failed";
         });
     })
@@ -243,7 +242,7 @@ async function getMetadata(folder, tagLanguage) {
  */
 const getCoverImage = (id, types) => {
   const rjcode = id;
-  const id2 = id % 1000 === 0 ? id : parseInt(id / 1000) * 1000 + 1000;
+  const id2 = id % 1000 === 0 ? id : Math.floor(id / 1000) * 1000 + 1000;
   let rjcode2 = String(id2);
   if (id2 >= 1000000) {
     rjcode2 = `0${id2}`.slice(-8);
@@ -282,6 +281,30 @@ const getCoverImage = (id, types) => {
     return "added";
   });
 };
+
+/**
+ * 获取作品本地信息
+ * @param {string} id 作品RJ号
+ * @param {string} dir 文件夹路径
+ */
+async function getWorkMemo(id, dir, readMemo) {
+  return scrapeWorkMemo(id, dir, readMemo)
+    .then(({ workDuration: workDuration, memo: memo }) => {
+      logger.task.info(id, "作品本地文件播放时长扫描成功，准备添加到数据库.");
+      db.setWorkMemo(id, workDuration, memo)
+        .then(() => {
+          logger.task.info(id, "数据库作品本地信息添加成功.");
+          return "added";
+        })
+        .catch((err) => {
+          logger.task.warn(id, "数据库作品本地信息添加失败.");
+          return "failed";
+        });
+    })
+    .catch((err) => {
+      logger.task.warn(id, `作品本地文件播放时长扫描失败: ${err.messsage}`);
+    });
+}
 
 /**
  * 获取音声元数据，获取音声封面图片，
@@ -330,7 +353,18 @@ async function processFolder(folder) {
               return "failed";
             } else {
               // 下载封面图片
-              return getCoverImage(folder.id, coverTypes);
+              return getWorkMemo(
+                folder.id,
+                folder.absolutePath,
+                {} // 首次添加作品肯定没有memo，这里设置一个空object作为初始memo
+              ).then((result) => {
+                if (result === "failed") {
+                  return "failed";
+                } else {
+                  return getCoverImage(folder.id, coverTypes);
+                }
+              });
+              // return getCoverImage(folder.id, coverTypes);
             }
           });
       }
@@ -369,7 +403,7 @@ async function performCleanup() {
         await deleteCoverImageFromDisk(rjcode);
       } catch (err) {
         if (err && err.code !== "ENOENT") {
-          logger.main.error(`  ! [RJ${rjcode}] 在删除封面过程中出错: ${err.messsage}`);
+          logger.main.error(` ! [RJ${rjcode}] 在删除封面过程中出错: ${err.messsage}`);
         }
       }
     })
@@ -382,7 +416,7 @@ async function tryCreateDatabase() {
   try {
     await createSchema();
   } catch (err) {
-    logger.main.error(`  ! 在构建数据库结构过程中出错: ${err.message}`);
+    logger.main.error(` ! 在构建数据库结构过程中出错: ${err.message}`);
     console.error(err.stack);
     process.exit(1);
   }
@@ -400,7 +434,7 @@ async function tryCreateAdminUser() {
     });
   } catch (err) {
     if (err.message.indexOf("已存在") === -1) {
-      logger.main.error(`  ! 在创建 admin 账号时出错: ${err.message}`);
+      logger.main.error(` ! 在创建 admin 账号时出错: ${err.message}`);
       process.exit(1);
     }
   }
@@ -414,14 +448,14 @@ async function fixVADatabase() {
   // かの仔 and こっこ
   let success = true;
   if (updateLock.isLockFilePresent && updateLock.lockFileConfig.fixVA) {
-    logger.main.log(" -> 开始进行声优元数据修复，需要联网");
+    logger.main.log("-> 开始进行声优元数据修复，需要联网");
     try {
       const updateResult = await fixVoiceActorBug();
       counts.updated += updateResult;
       updateLock.removeLockFile();
-      logger.main.log(" -> 完成元数据修复");
+      logger.main.log("-> 完成元数据修复");
     } catch (err) {
-      logger.main.error(" ->", err.toString());
+      logger.main.error("->", err.toString());
       success = false;
     }
   }
@@ -432,14 +466,14 @@ async function fixVADatabase() {
 // 如果清理过程中发生一场则杀死该进程
 async function tryCleanupStage() {
   if (config.skipCleanup) {
-    logger.main.info(" -> 跳过清理“不存在的音声数据”");
+    logger.main.info("-> 跳过清理“不存在的音声数据”");
   } else {
     try {
-      logger.main.info(" -> 清理本地不再存在的音声的数据与封面图片...");
+      logger.main.info("-> 清理本地不再存在的音声的数据与封面图片...");
       await performCleanup();
-      logger.main.info(" -> 清理完成. 现在开始扫描...");
+      logger.main.info("-> 清理完成. 现在开始扫描...");
     } catch (err) {
-      logger.main.error(`  ! 在执行清理过程中出错: ${err.message}`);
+      logger.main.error(` ! 在执行清理过程中出错: ${err.message}`);
       process.exit(1);
     }
   }
@@ -455,9 +489,9 @@ async function tryScanRootFolders() {
         folderList.push(folder);
       }
     }
-    logger.main.info(` -> 共找到 ${folderList.length} 个音声文件夹.`);
+    logger.main.info(`-> 共找到 ${folderList.length} 个音声文件夹.`);
   } catch (err) {
-    logger.main.error(`  ! 在扫描根文件夹的过程中出错: ${err.message}`);
+    logger.main.error(` ! 在扫描根文件夹的过程中出错: ${err.message}`);
     process.exit(1);
   }
   return folderList;
@@ -481,16 +515,16 @@ async function tryProcessFolderListParallel(folderList) {
 
   try {
     // 去重，避免在之后的并行处理文件夹过程中，出现对数据库同时写入同一条记录的错误
-    const { uniqueList: uniqueFolderList, duplicateSet } = uniqueArr(folderList);
+    const { uniqueList: uniqueFolderList, duplicateSet } = uniqueFolderListSeparate(folderList);
     const duplicateNum = folderList.length - uniqueFolderList.length;
 
     if (duplicateNum) {
-      logger.main.info(` -> 发现 ${duplicateNum} 个重复的音声文件夹.`);
+      logger.main.info(`-> 发现 ${duplicateNum} 个重复的音声文件夹.`);
 
       for (const key in duplicateSet) {
         // duplicateSet中并不包含存在于uniqueFolderList中的文件夹，
         // 将unique和duplicate重复的选项添加回duplicateSet，方便用户观察那些文件夹是重复的
-        const addedFolder = uniqueFolderList.find((folder) => folder.id === parseInt(key));
+        const addedFolder = uniqueFolderList.find((folder) => folder.id === key);
         duplicateSet[key].push(addedFolder); // 最后一项为是被添加到数据库中的音声文件夹，将其一同展示给用户
 
         const rjcode = key; // zero-pad to 6 or 8 digits
@@ -529,7 +563,7 @@ async function tryProcessFolderListParallel(folderList) {
       })
     );
   } catch (err) {
-    logger.main.error(`  ! 在并行处理音声文件夹过程中出错: ${err.message}`);
+    logger.main.error(` ! 在并行处理音声文件夹过程中出错: ${err.message}`);
     console.error(err.stack);
     process.exit(1);
   }
@@ -546,7 +580,7 @@ async function performScan() {
     try {
       fs.mkdirSync(config.coverFolderDir, { recursive: true });
     } catch (err) {
-      logger.main.error(`  ! 在创建存放音声封面图片的文件夹时出错: ${err.message}`);
+      logger.main.error(` ! 在创建存放音声封面图片的文件夹时出错: ${err.message}`);
       process.exit(1);
     }
   }
@@ -650,8 +684,67 @@ async function refreshWorks(query, idColumnName, processor) {
 
     logger.main.log(`完成元数据更新 ${counts.updated} 个，失败 ${counts.failed} 个.`);
     return counts;
-    s;
   });
 }
 
-module.exports = { performScan, performUpdate };
+// 扫描一个作品的文件夹中的文件信息
+// 例如音频时长、是否包含歌词文件等
+async function scanWorkFile(work, index, total) {
+  const rjcode = formatID(work.id);
+
+  LOG.main.info(`扫描进度：${index + 1}/${total}`);
+
+  try {
+    const rootFolder = config.rootFolders.find((rootFolder) => rootFolder.name === work.root_folder);
+    if (!rootFolder) return "skipped";
+
+    // lyric status
+    const absoluteWorkDir = path.join(rootFolder.path, work.dir);
+    const hasLocalLyric = await isContainLyric(work.id, absoluteWorkDir);
+    if (await db.updateWorkLocalLyricStatus(hasLocalLyric, work.lyric_status, work.id)) {
+      LOG.main.info(`[RJ${rjcode}] 歌词状态发生改变`);
+    }
+
+    // work memo, for instance, memorize all audio durations
+    const memo = await scrapeWorkMemo(
+      work.id,
+      absoluteWorkDir,
+      typeof work.memo === "string"
+        ? JSON.parse(work.memo)
+        : {
+            /* fallback empty object as memo */
+          }
+    );
+    // console.log('work: ', absoluteWorkDir);
+    // console.log('memo: ', memo);
+    await db.setWorkMemo(work.id, memo);
+
+    return "updated";
+  } catch (error) {
+    LOG.main.error(`[RJ${rjcode}] 扫描歌词过程中发生错误：${error}`);
+    console.error(error.stack);
+    return "failed";
+  }
+}
+const scanWorkFileLimited = (work, index, total) => limitP.call(scanWorkFile, work, index, total);
+async function performWorkFileScan() {
+  LOG.main.info(`扫描本地文件开始`);
+  const works = await db.knex("t_work").select("id", "root_folder", "dir", "lyric_status", "memo");
+  LOG.main.info(`总计 ${works.length} 个作品`);
+
+  const results = await Promise.all(works.map((work, index) => scanWorkFileLimited(work, index, works.length)));
+
+  const counts = results.reduce((acc, x) => (acc[x]++, acc), {
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+  });
+
+  const message = `扫描完成: 更新 ${counts.updated} 个，失败 ${counts.failed} 个，跳过 ${counts.skipped} 个.`;
+  LOG.finish(message);
+  db.knex.destroy();
+  if (counts.failed) process.exit(1);
+  process.exit(0);
+}
+
+module.exports = { performScan, performUpdate, performWorkFileScan };

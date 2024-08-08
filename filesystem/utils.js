@@ -2,17 +2,16 @@ const fs = require("fs");
 const path = require("path");
 const recursiveReaddir = require("recursive-readdir");
 const { orderBy } = require("natural-orderby");
-const LimitPromise = require("limit-promise");
 
 const { joinFragments } = require("../routes/utils/url");
 const { config } = require("../config");
 
 const util = require("util");
-const exec = util.promisify(require("child_process").exec);
 const execFile = util.promisify(require("child_process").execFile);
 
 const ffprobeStatic = require("ffprobe-static");
 
+// 支持文件后缀类型
 const supportedMediaExtList = [".mp3", ".ogg", ".opus", ".wav", ".aac", ".flac", ".webm", ".mp4", ".m4a", ".mka"];
 const supportedSubtitleExtList = [".lrc", ".srt", ".ass", ".vtt"]; // '.ass' only support show on file list, not for play lyric
 const supportedImageExtList = [".jpg", ".jpeg", ".png", ".webp"];
@@ -23,10 +22,6 @@ function uniqueArr(arr, val) {
   return arr.filter((item) => !res.has(item[val]) && res.set(item[val], 1));
 }
 
-/**
- * 限制 processFolder 并发数量，
- * 使用控制器包装 processFolder 方法，实际上是将请求函数递交给控制器处理
- */
 async function getAudioFileDuration(filePath) {
   try {
     // 默认环境中已经安装了ffprobe命令
@@ -46,8 +41,6 @@ async function getAudioFileDuration(filePath) {
   }
   return NaN;
 }
-const limitP = new LimitPromise(config.maxParallelism); // 核心控制器
-const getAudioFileDurationLimited = (filePath) => limitP.call(getAudioFileDuration, filePath);
 
 /**
  * Returns list of playable tracks in a given folder. Track is an object
@@ -55,10 +48,8 @@ const getAudioFileDurationLimited = (filePath) => limitP.call(getAudioFileDurati
  * @param {String} id Work identifier. Currently, RJ/RE code.
  * @param {String} dir Work directory (absolute).
  */
-const getTrackList = async function (id, dir) {
-  try {
-    const files = await recursiveReaddir(dir);
-    // Filter out any files not matching these extensions
+const getTrackList = async (id, dir, readMemo = {}) =>
+  recursiveReaddir(dir).then(async (files) => {
     const filteredFiles = files.filter((file) => {
       const ext = path.extname(file).toLowerCase();
 
@@ -75,7 +66,7 @@ const getTrackList = async function (id, dir) {
           title: path.basename(file),
           subtitle: dirName === "." ? null : dirName,
           ext: path.extname(file),
-          fullPath: file,
+          shortFilePath,
         };
       }),
       [(v) => v.subtitle, (v) => v.title, (v) => v.ext]
@@ -85,45 +76,86 @@ const getTrackList = async function (id, dir) {
     const sortedHashedFiles = sortedFiles.map((file, index) => ({
       title: file.title,
       subtitle: file.subtitle,
-      duration: file.duration,
       hash: `${id}/${index}`,
-      fullPath: file.fullPath, // 为后续获取音频时长提供完整文件路径
+      shortFilePath: file.shortFilePath,
       ext: file.ext,
     }));
 
-    // Add duration to each audio file
-    const addDurationFiles = await Promise.all(
-      sortedHashedFiles.map(async (file) => {
-        if (supportedMediaExtList.includes(file.ext)) {
-          file.duration = await getAudioFileDurationLimited(file.fullPath);
-        }
-        delete file.fullPath;
+    const durationMemo = readMemo.duration || {};
+
+    // Add 'audio' duration to each file
+    sortedHashedFiles.map((file) => {
+      if (supportedMediaExtList.includes(file.ext) && durationMemo[file.shortFilePath] !== undefined) {
+        file.duration = durationMemo[file.shortFilePath];
+
         delete file.shortFilePath;
+      }
+      return file;
+    });
+    // await Promise.all(
+    //   sortedHashedFiles.map(async (file) => {
+    //     if (supportedMediaExtList.includes(file.ext)) {
+    //       file.duration = await getAudioFileDuration(file.fullPath);
+    //     }
+    //     delete file.fullPath;
+    //     delete file.shortFilePath;
 
-        return file;
-      })
-    );
-    return addDurationFiles;
-  } catch (err) {
-    throw new Error(`Failed to get tracklist from disk: ${err}`);
-  }
-};
+    //     return file;
+    //   })
+    // );
+    return sortedHashedFiles;
+  });
+// const getTrackList = async function (id, dir) {
+//   try {
+//     const files = await recursiveReaddir(dir);
+//     // Filter out any files not matching these extensions
+//     const filteredFiles = files.filter((file) => {
+//       const ext = path.extname(file).toLowerCase();
 
-async function getWorkDuration(id, workPath) { 
-  const tracks = await limitP.call(getTrackList, id, workPath);
-  let duration = 0.0;
-  const tracksList = tracks.map((track) => {
-    track.title = track.title.replace(track.ext, "");
-    return track;
-  });
-  const uniqueTracks = uniqueArr(tracksList, "title");
-  uniqueTracks.forEach((track) => {
-    if (supportedMediaExtList.includes(track.ext)) {
-      duration += track.duration;
-    }
-  });
-  return duration;
-}
+//       return supportedExtList.includes(ext);
+//     });
+
+//     // Sort by folder and title
+//     const sortedFiles = orderBy(
+//       filteredFiles.map((file) => {
+//         const shortFilePath = file.replace(path.join(dir, "/"), "");
+//         const dirName = path.dirname(shortFilePath);
+
+//         return {
+//           title: path.basename(file),
+//           subtitle: dirName === "." ? null : dirName,
+//           ext: path.extname(file),
+//           fullPath: file,
+//         };
+//       }),
+//       [(v) => v.subtitle, (v) => v.title, (v) => v.ext]
+//     );
+
+//     // Add hash to each file
+//     const sortedHashedFiles = sortedFiles.map((file, index) => ({
+//       title: file.title,
+//       subtitle: file.subtitle,
+//       duration: file.duration,
+//       hash: `${id}/${index}`,
+//       fullPath: file.fullPath, // 为后续获取音频时长提供完整文件路径
+//       ext: file.ext,
+//     }));
+
+//     // Add 'audio' duration to each file
+//     await Promise.all(
+//       sortedHashedFiles.map(async (file) => {
+//         if (supportedMediaExtList.includes(file.ext)) {
+//           file.duration = await getAudioFileDuration(file.fullPath);
+//         }
+//         delete file.fullPath;
+//         delete file.shortFilePath;
+//       })
+//     );
+//     return sortedHashedFiles;
+//   } catch (err) {
+//     throw new Error(`Failed to get tracklist from disk: ${err}`);
+//   }
+// };
 
 /**
  * 转换成树状结构
@@ -329,22 +361,15 @@ const saveCoverImageToDisk = (stream, rjcode, type) =>
     }
   });
 
-function formatRJCode(id) {
-  if (id >= 1000000) {
-    id = `0${id}`.slice(-8);
-  } else {
-    id = `000000${id}`.slice(-6);
-  }
-  return id;
-}
-
 module.exports = {
-  formatRJCode,
-  getAudioFileDurationLimited,
   getTrackList,
-  getWorkDuration,
+  getAudioFileDuration,
   toTree,
   getFolderList,
   deleteCoverImageFromDisk,
   saveCoverImageToDisk,
+  supportedMediaExtList,
+  supportedSubtitleExtList,
+  supportedImageExtList,
+  supportedExtList,
 };
