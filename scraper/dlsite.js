@@ -3,7 +3,6 @@ const cheerio = require('cheerio'); // 解析器
 const axios = require('./axios'); // 数据请求
 const { nameToUUID, hasLetter } = require('./utils');
 const scrapeWorkMetadataFromHVDB = require('./hvdb');
-const { formatRJCode } = require('../filesystem/utils');
 
 /**
  * Scrapes static work metadata from public DLsite page HTML.
