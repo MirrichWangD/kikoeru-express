@@ -7,7 +7,6 @@ const { getTrackList, toTree } = require('../filesystem/utils');
 const { config } = require('../config');
 const normalize = require('./utils/normalize')
 const { isValidRequest } = require('./utils/validate');
-const { formatRJCode } = require('../filesystem/utils');
 
 const PAGE_SIZE = config.pageSize || 12;
 
@@ -56,13 +55,13 @@ router.get('/tracks/:id',
     if(!isValidRequest(req, res)) return;
 
     db.knex('t_work')
-      .select('title', 'root_folder', 'dir')
+      .select('title', 'root_folder', 'dir', "memo")
       .where('id', '=', req.params.id)
       .first()
       .then((work) => {
         const rootFolder = config.rootFolders.find(rootFolder => rootFolder.name === work.root_folder);
         if (rootFolder) {
-          getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
+          getTrackList(req.params.id, path.join(rootFolder.path, work.dir), JSON.parse(work.memo))
             .then(tracks => res.send(toTree(tracks, work.title, work.dir, rootFolder)))
             .catch(() => res.status(500).send({error: '获取文件列表失败，请检查文件是否存在或重新扫描清理'}));
         } else {
