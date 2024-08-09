@@ -182,7 +182,6 @@ router.get('/search', async (req, res, next) => {
         .orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
     }
 
-    console.log(works);
     works = normalize(works);
 
     res.send({
