@@ -49,9 +49,7 @@ async function scrapeWorkMemo(work_id, dir, oldMemo) {
           oldMTime !== newMTime // 或者音频文件的最后修改时间和之前的memo记录不一致，说明文件有修改
         ) {
           // 更新duration和mtime
-          console.log(
-            `[RJ${work_id}] update data on file: ${fileDict.fullPath}, fstate.mtime: ${fstat.mtime.getTime()}, `
-          );
+          console.log(`[RJ${work_id}] update data on file: ${fileDict.fullPath}, fs.mtime: ${fstat.mtime.getTime()}`);
           memo.mtime[fileDict.shortPath] = newMTime;
           const duration = await getAudioFileDuration(fileDict.fullPath);
           if (!isNaN(duration) && typeof duration === "number") {
@@ -74,9 +72,7 @@ async function scrapeWorkMemo(work_id, dir, oldMemo) {
   const res = new Map();
   trackInfo = trackInfo.filter((item) => !res.has(item["title"]) && res.set(item["title"], 1));
   trackInfo = trackInfo.filter((item) => !res.has(item["duration"]) && res.set(item["duration"], 1));
-  trackInfo.map((track) => {
-    workDuration += track.duration;
-  });
+  trackInfo.map((track) => { workDuration += track.duration });
 
   return { workDuration, memo };
 }

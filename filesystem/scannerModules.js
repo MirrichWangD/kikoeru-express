@@ -18,7 +18,7 @@ const { config } = require("../config");
 const { updateLock } = require("../upgrade");
 
 // 只有在子进程中 process 对象才有 send() 方法
-process.send = process.send || function () {};
+process.send = process.send || function () { };
 
 const tasks = [];
 const failedTasks = [];
@@ -28,10 +28,7 @@ const results = [];
 const logger = {
   finish(message) {
     console.log(` * ${message}`);
-    process.send({
-      event: "SCAN_FINISHED",
-      payload: { message },
-    });
+    process.send({ event: "SCAN_FINISHED", payload: { message } });
   },
   main: {
     __internal__(level, message) {
@@ -59,15 +56,8 @@ const logger = {
   },
   result: {
     add(rjcode, result, count) {
-      results.push({
-        rjcode,
-        result,
-        count,
-      });
-      process.send({
-        event: "SCAN_RESULTS",
-        payload: { results },
-      });
+      results.push({ rjcode, result, count });
+      process.send({ event: "SCAN_RESULTS", payload: { results } });
     },
   },
   task: {
@@ -76,11 +66,7 @@ const logger = {
       // taskId == rjcode, e.g. "443322" or "01134321"
       // console.log("[TASK] Add", taskId);
       console.assert(typeof taskId === "string" && (taskId.length === 6 || taskId.length === 8));
-      tasks.push({
-        rjcode: taskId,
-        result: null,
-        logs: [],
-      });
+      tasks.push({ rjcode: taskId, result: null, logs: [] });
     },
 
     // 移除作品的专属log，如果该作品的对应任务失败，则发送相应的失败消息
@@ -133,17 +119,9 @@ const logger = {
 
 process.on("message", (m) => {
   if (m.emit === "SCAN_INIT_STATE") {
-    process.send({
-      event: "SCAN_INIT_STATE",
-      payload: {
-        tasks,
-        failedTasks,
-        mainLogs,
-        results,
-      },
-    });
+    process.send({ event: "SCAN_INIT_STATE", payload: { tasks, failedTasks, mainLogs, results } });
   } else if (m.exit) {
-    logger.main.error("  ! 终止扫描过程.");
+    logger.main.error(" ! 终止扫描过程.");
     process.exit(1);
   }
 });
@@ -182,15 +160,11 @@ function uniqueFolderListSeparate(arr) {
 async function scrapeWorkMetadata(id, language) {
   const rjcode = id;
   return scrapeWorkMetadataFromDLsite(id, language)
-    .then((metadata) => {
-      return metadata;
-    })
+    .then((metadata) => { return metadata })
     .catch((err) => {
       logger.task.warn(rjcode, `DLsite获取元数据失败: ${err.message}`);
       return scrapeWorkMetadataFromAsmrOne(id, language)
-        .then((metadata) => {
-          return metadata;
-        })
+        .then((metadata) => { return metadata })
         .catch((err) => {
           logger.task.warn(rjcocde, `asmr-one获取元数据失败: ${err.message}`);
           throw err;
@@ -217,8 +191,7 @@ async function getMetadata(folder, tagLanguage) {
       metadata.dir = folder.relativePath;
       metadata.addTime = folder.addTime;
 
-      return db
-        .insertWorkMetadata(metadata)
+      return db.insertWorkMetadata(metadata)
         .then(() => {
           logger.task.info(rjcode, "元数据成功添加到数据库.");
           return "added";
@@ -253,19 +226,17 @@ const getCoverImage = (id, types) => {
     if (type === "240x240" || type === "360x360") {
       url = `https://img.dlsite.jp/resize/images2/work/doujin/RJ${rjcode2}/RJ${rjcode}_img_main_${type}.jpg`;
     }
-    promises.push(
-      axios
-        .retryGet(url, { responseType: "stream", retry: {} })
-        .then((imageRes) => {
-          return saveCoverImageToDisk(imageRes.data, rjcode, type).then(() => {
-            logger.task.info(rjcode, `封面 RJ${rjcode}_img_${type}.jpg 下载成功.`);
-            return "added";
-          });
-        })
-        .catch((err) => {
-          logger.task.info(rjcode, `在下载封面 RJ${rjcode}_img_${type}.jpg 过程中出错: ${err.message}`);
-          return "failed";
-        })
+    promises.push(axios.retryGet(url, { responseType: "stream", retry: {} })
+      .then((imageRes) => {
+        return saveCoverImageToDisk(imageRes.data, rjcode, type).then(() => {
+          logger.task.info(rjcode, `封面 RJ${rjcode}_img_${type}.jpg 下载成功.`);
+          return "added";
+        });
+      })
+      .catch((err) => {
+        logger.task.info(rjcode, `在下载封面 RJ${rjcode}_img_${type}.jpg 过程中出错: ${err.message}`);
+        return "failed";
+      })
     );
   });
 
@@ -287,7 +258,7 @@ const getCoverImage = (id, types) => {
  * @param {string} id 作品RJ号
  * @param {string} dir 文件夹路径
  */
-async function getWorkMemo(id, dir, readMemo) {
+async function getWorkMemo(id, dir, readMemo = {}) {
   return scrapeWorkMemo(id, dir, readMemo)
     .then(({ workDuration: workDuration, memo: memo }) => {
       logger.task.info(id, "作品本地文件播放时长扫描成功，准备添加到数据库.");
@@ -312,8 +283,7 @@ async function getWorkMemo(id, dir, readMemo) {
  * @param {string} folder 音声文件夹对象 { relativePath: '相对路径', rootFolderName: '根文件夹别名', id: '音声ID' }
  */
 async function processFolder(folder) {
-  return db
-    .knex("t_work")
+  return db.knex("t_work")
     .select("id")
     .where("id", "=", folder.id)
     .count()
@@ -346,27 +316,22 @@ async function processFolder(folder) {
         logger.task.add(rjcode);
         logger.task.info(rjcode, `发现新文件夹: "${folder.absolutePath}"`);
 
-        return getMetadata(folder, config.tagLanguage) // 获取元数据
-          .then((result) => {
-            if (result === "failed") {
-              // 如果获取元数据失败，跳过封面图片下载
-              return "failed";
-            } else {
-              // 下载封面图片
-              return getWorkMemo(
-                folder.id,
-                folder.absolutePath,
-                {} // 首次添加作品肯定没有memo，这里设置一个空object作为初始memo
-              ).then((result) => {
-                if (result === "failed") {
-                  return "failed";
-                } else {
-                  return getCoverImage(folder.id, coverTypes);
-                }
-              });
-              // return getCoverImage(folder.id, coverTypes);
-            }
-          });
+        return getMetadata(folder, config.tagLanguage).then((result) => {
+          if (result === "failed") {
+            // 如果获取元数据失败，跳过封面图片下载
+            return "failed";
+          } else {
+            // 下载封面图片
+            return getWorkMemo(folder.id, folder.absolutePath).then((result) => {
+              if (result === "failed") { 
+                return "failed";
+              } else {
+                return getCoverImage(folder.id, coverTypes);
+              }
+            });
+            // return getCoverImage(folder.id, coverTypes);
+          }
+        });
       }
     });
 }
@@ -427,11 +392,7 @@ async function tryCreateDatabase() {
 async function tryCreateAdminUser() {
   try {
     // 创建内置的管理员账号
-    await db.createUser({
-      name: "admin",
-      password: md5("admin"),
-      group: "administrator",
-    });
+    await db.createUser({ name: "admin", password: md5("admin"), group: "administrator" });
   } catch (err) {
     if (err.message.indexOf("已存在") === -1) {
       logger.main.error(` ! 在创建 admin 账号时出错: ${err.message}`);
@@ -506,12 +467,7 @@ async function tryScanRootFolders() {
 //   updated: 0, // 更新
 // };
 async function tryProcessFolderListParallel(folderList) {
-  const counts = {
-    added: 0,
-    failed: 0,
-    skipped: 0,
-    updated: 0,
-  };
+  const counts = { added: 0, failed: 0, skipped: 0, updated: 0 };
 
   try {
     // 去重，避免在之后的并行处理文件夹过程中，出现对数据库同时写入同一条记录的错误
@@ -592,11 +548,11 @@ async function performScan() {
   await tryCleanupStage();
 
   const folderList = await tryScanRootFolders();
-  const folderResult = await tryProcessFolderListParallel(folderList);
+  const result = await tryProcessFolderListParallel(folderList);
 
-  const message = folderResult.updated
-    ? `扫描完成: 更新 ${folderResult.updated} 个，新增 ${folderResult.added} 个，跳过 ${folderResult.skipped} 个，失败 ${folderResult.failed} 个.`
-    : `扫描完成: 新增 ${folderResult.added} 个，跳过 ${folderResult.skipped} 个，失败 ${folderResult.failed} 个.`;
+  const message = result.updated
+    ? `扫描完成: 更新 ${result.updated} 个，新增 ${result.added} 个，跳过 ${result.skipped} 个，失败 ${result.failed} 个.`
+    : `扫描完成: 新增 ${result.added} 个，跳过 ${result.skipped} 个，失败 ${result.failed} 个.`;
   logger.finish(message);
 
   db.knex.destroy();
@@ -664,10 +620,7 @@ async function refreshWorks(query, idColumnName, processor) {
   return query.then(async (works) => {
     logger.main.info(`共 ${works.length} 个音声. 开始刷新`);
 
-    const counts = {
-      updated: 0,
-      failed: 0,
-    };
+    const counts = { updated: 0, failed: 0 };
 
     await Promise.all(
       works.map(async (work) => {
@@ -712,11 +665,9 @@ async function scanWorkFile(work, index, total) {
       typeof work.memo === "string"
         ? JSON.parse(work.memo)
         : {
-            /* fallback empty object as memo */
-          }
+          /* fallback empty object as memo */
+        }
     );
-    // console.log('work: ', absoluteWorkDir);
-    // console.log('memo: ', memo);
     await db.setWorkMemo(work.id, memo);
 
     return "updated";

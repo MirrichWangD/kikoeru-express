@@ -14,93 +14,87 @@ const knex = require("knex")(conn);
  * @param {Object} work Work object.
  */
 // Using trx as a query builder:
-const insertWorkMetadata = (work) =>
-  knex.transaction((trx) =>
-    trx
-      .raw(
-        trx("t_circle")
-          .insert({
-            id: work.circle.id,
-            name: work.circle.name,
-          })
-          .toString()
-          .replace("insert", "insert or ignore")
-      )
-      .then(() =>
-        trx("t_work").insert({
-          id: work.id,
-          root_folder: work.rootFolderName,
-          dir: work.dir,
-          title: work.title,
-          circle_id: work.circle.id,
-          nsfw: work.nsfw,
-          release: work.release,
-          add_time: work.addTime,
+const insertWorkMetadata = (work) => knex.transaction((trx) => trx.raw(
+  trx("t_circle")
+    .insert({ id: work.circle.id, name: work.circle.name })
+    .toString()
+    .replace("insert", "insert or ignore")
+)
+  .then(() => trx("t_work")
+    .insert({
+      id: work.id,
+      root_folder: work.rootFolderName,
+      dir: work.dir,
+      title: work.title,
+      circle_id: work.circle.id,
+      nsfw: work.nsfw,
+      release: work.release,
+      add_time: work.addTime,
 
-          dl_count: work.dl_count,
-          price: work.price,
-          review_count: work.review_count,
-          rate_count: work.rate_count,
-          rate_average_2dp: work.rate_average_2dp,
-          rate_count_detail: JSON.stringify(work.rate_count_detail),
-          rank: work.rank ? JSON.stringify(work.rank) : null,
-          duration: work.duration,
-        })
-      )
-      .then(() => {
-        // Now that work is in the database, insert relationships
-        const promises = [];
+      dl_count: work.dl_count,
+      price: work.price,
+      review_count: work.review_count,
+      rate_count: work.rate_count,
+      rate_average_2dp: work.rate_average_2dp,
+      rate_count_detail: JSON.stringify(work.rate_count_detail),
+      rank: work.rank ? JSON.stringify(work.rank) : null,
+      duration: work.duration,
+    })
+  )
+  .then(() => {
+    // Now that work is in the database, insert relationships
+    const promises = [];
 
-        for (let i = 0; i < work.tags.length; i += 1) {
-          promises.push(
-            trx
-              .raw(
-                trx("t_tag")
-                  .insert({
-                    id: work.tags[i].id,
-                    name: work.tags[i].name,
-                  })
-                  .toString()
-                  .replace("insert", "insert or ignore")
-              )
-              .then(() =>
-                trx("r_tag_work").insert({
-                  tag_id: work.tags[i].id,
+    for (let i = 0; i < work.tags.length; i += 1) {
+      promises.push(
+        trx
+          .raw(
+            trx("t_tag")
+              .insert({
+                id: work.tags[i].id,
+                name: work.tags[i].name,
+              })
+              .toString()
+              .replace("insert", "insert or ignore")
+          )
+          .then(() =>
+            trx("r_tag_work").insert({
+              tag_id: work.tags[i].id,
+              work_id: work.id,
+            })
+          )
+      );
+    }
+
+    for (let i = 0; i < work.vas.length; i += 1) {
+      promises.push(
+        trx
+          .raw(
+            trx("t_va")
+              .insert({
+                id: work.vas[i].id,
+                name: work.vas[i].name,
+              })
+              .toString()
+              .replace("insert", "insert or ignore")
+          )
+          .then(() =>
+            trx.raw(
+              trx("r_va_work")
+                .insert({
+                  va_id: work.vas[i].id,
                   work_id: work.id,
                 })
-              )
-          );
-        }
+                .toString()
+                .replace("insert", "insert or ignore")
+            )
+          )
+      );
+    }
 
-        for (let i = 0; i < work.vas.length; i += 1) {
-          promises.push(
-            trx
-              .raw(
-                trx("t_va")
-                  .insert({
-                    id: work.vas[i].id,
-                    name: work.vas[i].name,
-                  })
-                  .toString()
-                  .replace("insert", "insert or ignore")
-              )
-              .then(() =>
-                trx.raw(
-                  trx("r_va_work")
-                    .insert({
-                      va_id: work.vas[i].id,
-                      work_id: work.id,
-                    })
-                    .toString()
-                    .replace("insert", "insert or ignore")
-                )
-              )
-          );
-        }
-
-        return Promise.all(promises).then(() => trx);
-      })
-  );
+    return Promise.all(promises).then(() => trx);
+  })
+);
 
 /**
  * 更新音声的动态元数据
@@ -316,6 +310,49 @@ const getWorksBy = ({ id, field, username = "" } = {}) => {
         .leftJoin(ratingSubQuery, "userrate.work_id", "staticMetadata.id");
   }
 };
+
+const AdvanceSearchCondType = {
+  UNKNOWN: 0,
+  FUZZY: 1, // 全文模糊搜索，包括标题，
+  VA: 2,
+  TAG: 3,
+  CIRCLE: 4,
+}
+function advanceSearch(conditions, username) {
+  const intersectQueryList = []
+  for (let cond of conditions) {
+    const data = cond.d;
+    if (cond.t === AdvanceSearchCondType.FUZZY) {
+      const circleIdQuery = knex("t_circle").select("id").where("name", "like", `%${data}%`);
+      const tagIdQuery = knex("t_tag").select("id").where("name", "like", `%${data}%`);
+      const vaIdQuery = knex("t_va").select("id").where("name", "like", `%${data}%`);
+
+      const workIdQuery =
+        knex('t_work').select('id as work_id') // 用work_id这个名字来统一所有搜索到的作品id
+          .where('title', 'like', `%${data}%`) // 作品标题名模糊匹配
+          .orWhere('circle_id', 'in', circleIdQuery) // 社团名模糊匹配
+          .union([
+            knex('r_tag_work').select('work_id').where('tag_id', 'in', tagIdQuery), // 标签模糊匹配
+            knex('r_va_work').select('work_id').where('va_id', 'in', vaIdQuery), // 声优模糊匹配
+          ])
+
+      intersectQueryList.push(workIdQuery)
+    }
+  }
+  const ratingSubQuery = knex('t_review')
+    .select(['t_review.work_id', 't_review.rating'])
+    .join('t_work', 't_work.id', 't_review.work_id')
+    .where('t_review.user_name', username).as('userrate')
+
+  // 最终返回的work数据源
+  let query = knex('staticMetadata').select(['staticMetadata.*', 'userrate.rating AS userRating'])
+    .leftJoin(ratingSubQuery, 'userrate.work_id', 'staticMetadata.id');
+
+  // 将前面的多个查询条件通过andWhere叠加到数据源条件中
+  const queryWithConditions = intersectQueryList.reduce((accQuery, idQuery) => accQuery.andWhere("id", "in", idQuery), query)
+  // console.log("advance search query = ", queryWithConditions.toString())
+  return queryWithConditions
+}
 
 /**
  * 根据关键字查询音声
@@ -566,9 +603,6 @@ const setWorkMemo = async (work_id, workDuration, memo) =>
       memo: JSON.stringify(memo),
     });
 
-const setWorkDuration = async (work_id, duration) =>
-  knex("t_work").where("id", "=", work_id).update({ duration: duration });
-
 module.exports = {
   knex,
   insertWorkMetadata,
@@ -588,6 +622,6 @@ module.exports = {
   deleteUserReview,
   getWorkMemo,
   setWorkMemo,
-  setWorkDuration,
+  advanceSearch,
   databaseExist,
 };

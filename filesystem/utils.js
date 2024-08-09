@@ -17,10 +17,6 @@ const supportedSubtitleExtList = [".lrc", ".srt", ".ass", ".vtt"]; // '.ass' onl
 const supportedImageExtList = [".jpg", ".jpeg", ".png", ".webp"];
 const supportedExtList = ["txt", "pdf"] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
 
-function uniqueArr(arr, val) {
-  const res = new Map();
-  return arr.filter((item) => !res.has(item[val]) && res.set(item[val], 1));
-}
 
 async function getAudioFileDuration(filePath) {
   try {
