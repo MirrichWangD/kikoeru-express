@@ -18,7 +18,7 @@ const createSchema = () => knex.schema
     table.string("release"); // VARCHAR 类型 [贩卖日 (YYYY-MM-DD)]
 
     table.string("add_time"); // VARCHAR 类型 [文件夹添加时间 (YYYY-MM-DD HH:MM:SS)]
-    table.float("duration"); // FLOAT 类型 [作品全部track时长]
+    table.integer("duration"); // FLOAT 类型 [作品全部track时长]
     table.json("memo"); // JSON 类型 [作品全部track本地文件信息]
 
     table.integer("dl_count"); // INTEGER 类型 [售出数]
