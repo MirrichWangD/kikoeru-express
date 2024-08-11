@@ -63,16 +63,39 @@ async function scrapeWorkMemo(work_id, dir, oldMemo) {
         // 统计全部音频中不重复的播放时长
         const track = path.dirname(fileDict.shortPath);
         const ext = path.extname(fileDict.shortPath);
-        const title = path.basename(fileDict.shortPath).replace(ext, "");
-        trackInfo.push({ track: track, title: title, duration: memo.duration[fileDict.shortPath], ext: ext });
+        const title = path.basename(fileDict.shortPath).replace(ext, "").replace(/[. ]/g, "").toLowerCase();
+        const trackRegex = /なし|no/;
+        const titleRegex = /seなし/;
+        if (!trackRegex.test(track) && !titleRegex.test(title)) {
+          trackInfo.push({ track: track, title: title, duration: memo.duration[fileDict.shortPath], ext: ext });
+        }
       }) // map get duration
   ); // Promise.all
 
   // 根据标题、播放时长去重，计算作品播放时长
-  const res = new Map();
-  trackInfo = trackInfo.filter((item) => !res.has(item["title"]) && res.set(item["title"], 1));
-  trackInfo = trackInfo.filter((item) => !res.has(item["duration"]) && res.set(item["duration"], 1));
-  trackInfo.map((track) => { workDuration += track.duration });
+  let uniqueTitle = trackInfo.reduce((accumulator, current) => {
+    let existing = accumulator.find(item => item.title === current.title);
+    if (!existing) {
+      accumulator.push(current);
+    }
+    return accumulator;
+  }, []);
+
+  let uniqueDuration = uniqueTitle.reduce((accumulator, current) => {
+    let existing = accumulator.find(item => item.duration === current.duration);
+    if (existing) {
+      if (existing.duration < current.duration) {
+        accumulator = accumulator.filter(item => item.duration !== current.duration); // 删除旧的记录
+        accumulator.push(current); // 添加新的记录
+      }
+    } else {
+      accumulator.push(current); // 如果没有相同的 'title'，直接添加
+    }
+    return accumulator;
+  }, []);
+
+  uniqueDuration.map((track) => { workDuration += track.duration });
+  workDuration = Math.round(workDuration);
 
   return { workDuration, memo };
 }
