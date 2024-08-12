@@ -20,7 +20,6 @@ const supportedExtList = ["txt", "pdf"] + supportedImageExtList + supportedMedia
 
 async function getAudioFileDuration(filePath) {
   try {
-    // 默认环境中已经安装了ffprobe命令
     const { stdout } = await execFile(ffprobeStatic.path, [
       "-v",
       "error",
@@ -44,8 +43,8 @@ async function getAudioFileDuration(filePath) {
  * @param {String} id Work identifier. Currently, RJ/RE code.
  * @param {String} dir Work directory (absolute).
  */
-const getTrackList = async (id, dir, readMemo = {}) =>
-  recursiveReaddir(dir).then(async (files) => {
+const getTrackList = async (id, dir, readMemo = {}) => recursiveReaddir(dir)
+  .then(async (files) => {
     const filteredFiles = files.filter((file) => {
       const ext = path.extname(file).toLowerCase();
 
@@ -53,20 +52,17 @@ const getTrackList = async (id, dir, readMemo = {}) =>
     });
 
     // Sort by folder and title
-    const sortedFiles = orderBy(
-      filteredFiles.map((file) => {
-        const shortFilePath = file.replace(path.join(dir, "/"), "");
-        const dirName = path.dirname(shortFilePath);
+    const sortedFiles = orderBy(filteredFiles.map((file) => {
+      const shortFilePath = file.replace(path.join(dir, "/"), "");
+      const dirName = path.dirname(shortFilePath);
 
-        return {
-          title: path.basename(file),
-          subtitle: dirName === "." ? null : dirName,
-          ext: path.extname(file),
-          shortFilePath,
-        };
-      }),
-      [(v) => v.subtitle, (v) => v.title, (v) => v.ext]
-    );
+      return {
+        title: path.basename(file),
+        subtitle: dirName === "." ? null : dirName,
+        ext: path.extname(file),
+        shortFilePath,
+      };
+    }), [(v) => v.subtitle, (v) => v.title, (v) => v.ext]);
 
     // Add hash to each file
     const sortedHashedFiles = sortedFiles.map((file, index) => ({
@@ -88,70 +84,9 @@ const getTrackList = async (id, dir, readMemo = {}) =>
       }
       return file;
     });
-    // await Promise.all(
-    //   sortedHashedFiles.map(async (file) => {
-    //     if (supportedMediaExtList.includes(file.ext)) {
-    //       file.duration = await getAudioFileDuration(file.fullPath);
-    //     }
-    //     delete file.fullPath;
-    //     delete file.shortFilePath;
-
-    //     return file;
-    //   })
-    // );
     return sortedHashedFiles;
   });
-// const getTrackList = async function (id, dir) {
-//   try {
-//     const files = await recursiveReaddir(dir);
-//     // Filter out any files not matching these extensions
-//     const filteredFiles = files.filter((file) => {
-//       const ext = path.extname(file).toLowerCase();
 
-//       return supportedExtList.includes(ext);
-//     });
-
-//     // Sort by folder and title
-//     const sortedFiles = orderBy(
-//       filteredFiles.map((file) => {
-//         const shortFilePath = file.replace(path.join(dir, "/"), "");
-//         const dirName = path.dirname(shortFilePath);
-
-//         return {
-//           title: path.basename(file),
-//           subtitle: dirName === "." ? null : dirName,
-//           ext: path.extname(file),
-//           fullPath: file,
-//         };
-//       }),
-//       [(v) => v.subtitle, (v) => v.title, (v) => v.ext]
-//     );
-
-//     // Add hash to each file
-//     const sortedHashedFiles = sortedFiles.map((file, index) => ({
-//       title: file.title,
-//       subtitle: file.subtitle,
-//       duration: file.duration,
-//       hash: `${id}/${index}`,
-//       fullPath: file.fullPath, // 为后续获取音频时长提供完整文件路径
-//       ext: file.ext,
-//     }));
-
-//     // Add 'audio' duration to each file
-//     await Promise.all(
-//       sortedHashedFiles.map(async (file) => {
-//         if (supportedMediaExtList.includes(file.ext)) {
-//           file.duration = await getAudioFileDuration(file.fullPath);
-//         }
-//         delete file.fullPath;
-//         delete file.shortFilePath;
-//       })
-//     );
-//     return sortedHashedFiles;
-//   } catch (err) {
-//     throw new Error(`Failed to get tracklist from disk: ${err}`);
-//   }
-// };
 
 /**
  * 转换成树状结构
