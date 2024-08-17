@@ -6,7 +6,8 @@ const { param } = require('express-validator');
 const fs = require('fs');
 const path = require('path');
 const jschardet = require('jschardet');
-const { getTrackList } = require('../filesystem/utils');
+const recursiveReaddir = require("recursive-readdir");
+const { getTrackList, supportedSubtitleExtList } = require('../filesystem/utils');
 const { joinFragments } = require('./utils/url')
 const { isValidRequest } = require('./utils/validate')
 
@@ -15,7 +16,7 @@ router.get('/stream/:id/:index',
   param('id').isInt(),
   param('index').isInt(),
   (req, res, next) => {
-    if(!isValidRequest(req, res)) return;
+    if (!isValidRequest(req, res)) return;
 
     db.knex('t_work')
       .select('root_folder', 'dir')
@@ -63,17 +64,17 @@ router.get('/stream/:id/:index',
             })
             .catch(err => next(err));
         } else {
-          res.status(500).send({error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.`});
+          res.status(500).send({ error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.` });
         }
       })
       .catch(err => next(err));
-});
+  });
 
 router.get('/download/:id/:index',
   param('id').isInt(),
   param('index').isInt(),
   (req, res, next) => {
-    if(!isValidRequest(req, res)) return;
+    if (!isValidRequest(req, res)) return;
 
     db.knex('t_work')
       .select('root_folder', 'dir')
@@ -107,51 +108,47 @@ router.get('/download/:id/:index',
             })
             .catch(err => next(err));
         } else {
-          res.status(500).send({error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.`});
+          res.status(500).send({ error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.` });
         }
       });
-});
+  });
 
 router.get('/check-lrc/:id/:index',
   param('id').isInt(),
   param('index').isInt(),
   (req, res, next) => {
-    if(!isValidRequest(req, res)) return;
+    if (!isValidRequest(req, res)) return;
 
     db.knex('t_work')
-      .select('root_folder', 'dir')
+      .select('root_folder', 'dir', "memo")
       .where('id', '=', req.params.id)
       .first()
       .then((work) => {
         const rootFolder = config.rootFolders.find(rootFolder => rootFolder.name === work.root_folder);
+        const workMemo = JSON.parse(work.memo);
         if (rootFolder) {
           getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
             .then((tracks) => {
               const track = tracks[req.params.index];
-              const fileLoc = path.join(rootFolder.path, work.dir, track.subtitle || '', track.title);
-              const lrcFileLoc = fileLoc.substr(0, fileLoc.lastIndexOf(".")) + ".lrc";
 
-              if (!fs.existsSync(lrcFileLoc)) {
-                res.send({result: false, message:'不存在歌词文件', hash: ''});
+              if (!workMemo.isContainLyric) {
+                res.send({ result: false, message: '不存在歌词文件', hash: '' });
               } else {
-                console.log('找到歌词文件');             
-                const lrcFileName = track.title.substr(0, track.title.lastIndexOf(".")) + ".lrc";
-                const subtitleToFind = track.subtitle;
-                console.log('歌词文件名： ', lrcFileName);
+                const lrcFileName = track.title.substring(0, track.title.lastIndexOf(".")) + ".lrc";
                 // 文件名、子目录名相同
                 tracks.forEach(trackItem => {
-                  if (trackItem.title === lrcFileName && subtitleToFind === trackItem.subtitle) {
-                      res.send({result: true, message:'找到歌词文件', hash: trackItem.hash});
+                  if (trackItem.title === lrcFileName) {
+                    res.send({ result: true, message: '找到歌词文件', hash: trackItem.hash });
                   }
                 })
               }
             })
             .catch(err => next(err));
         } else {
-          res.status(500).send({error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.`});
+          res.status(500).send({ error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.` });
         }
       })
       .catch(err => next(err));
-});
+  });
 
 module.exports = router;
