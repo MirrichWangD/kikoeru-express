@@ -12,9 +12,10 @@ const execFile = util.promisify(require("child_process").execFile);
 const ffprobeStatic = require("ffprobe-static");
 
 // 支持文件后缀类型
-const supportedMediaExtList = [".mp3", ".ogg", ".opus", ".wav", ".aac", ".flac", ".webm", ".mp4", ".m4a", ".mka"];
-const supportedSubtitleExtList = [".lrc", ".srt", ".ass", ".vtt"]; // '.ass' only support show on file list, not for play lyric
+// '.ass' only support show on file list, not for play lyric
+const supportedSubtitleExtList = [".lrc", ".srt", ".ass", ".vtt"];
 const supportedImageExtList = [".jpg", ".jpeg", ".png", ".webp"];
+const supportedMediaExtList = [".mp3", ".ogg", ".opus", ".wav", ".aac", ".flac", ".webm", ".mp4", ".m4a", ".mka"];
 const supportedExtList = ["txt", "pdf"] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
 
 
@@ -205,7 +206,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
  * 音声文件夹对象 { relativePath: '相对路径', rootFolderName: '根文件夹别名', id: '音声ID' }
  * @param {Object} rootFolder 根文件夹对象 { name: '别名', path: '绝对路径' }
  */
-async function* getFolderList(rootFolder, current = "", depth = 0, callback = function addMainLog() {}) {
+async function* getFolderList(rootFolder, current = "", depth = 0, callback = function addMainLog() { }) {
   // 异步生成器函数 async function*() {}
   // 浅层遍历
   const folders = await fs.promises.readdir(path.join(rootFolder.path, current));
@@ -213,9 +214,9 @@ async function* getFolderList(rootFolder, current = "", depth = 0, callback = fu
   for (const folder of folders) {
     const absolutePath = path.resolve(rootFolder.path, current, folder);
     const relativePath = path.join(current, folder);
-    const mtime = fs.statSync(absolutePath).mtime;
-    const dateStr = mtime.toLocaleDateString("zh-cn", { year: "numeric", month: "2-digit", day: "2-digit" });
-    const timeStr = mtime.toLocaleTimeString("zh-cn", { hour12: false });
+    const birthTime = fs.statSync(absolutePath).birthtime;
+    const dateStr = birthTime.toLocaleDateString("zh-cn", { year: "numeric", month: "2-digit", day: "2-digit" });
+    const timeStr = birthTime.toLocaleTimeString("zh-cn", { hour12: false });
     const addTime = `${dateStr.replace(/\//g, "-")} ${timeStr}`;
 
     try {

@@ -23,53 +23,52 @@ async function scrapeWorkMemo(work_id, dir, oldMemo) {
   const memo = { duration: {}, isContainLyric: false, mtime: {} };
   let trackInfo = [];
   let workDuration = 0.0;
-  await Promise.all(
-    files
-      .filter((file) => {
-        const ext = path.extname(file).toLowerCase();
-        // TODO: 添加歌词字幕
-        // if (supportedSubtitleExtList.includes(ext)) {
-        //   memo.isContainLyric = true;
-        // }
-        return supportedMediaExtList.includes(ext);
-      }) // filter
-      .map((file) => ({
-        fullPath: file,
-        shortPath: file.replace(path.join(dir, "/"), ""),
-      })) // map
-      .map(async (fileDict) => {
-        const fstat = fs.statSync(fileDict.fullPath);
-        const newMTime = Math.round(fstat.mtime.getTime());
-        const oldMTime = oldMemoMtime[fileDict.shortPath];
-        const oldDuration = oldMemoDuration[fileDict.shortPath];
 
-        if (
-          oldMTime === undefined || // 音频文件是新增的
-          oldDuration === undefined || // 此前没有更新过这个文件的duration
-          oldMTime !== newMTime // 或者音频文件的最后修改时间和之前的memo记录不一致，说明文件有修改
-        ) {
-          // 更新duration和mtime
-          console.log(`[RJ${work_id}] update data on file: ${fileDict.fullPath}, fs.mtime: ${fstat.mtime.getTime()}`);
-          memo.mtime[fileDict.shortPath] = newMTime;
-          const duration = await getAudioFileDuration(fileDict.fullPath);
-          if (!isNaN(duration) && typeof duration === "number") {
-            memo.duration[fileDict.shortPath] = duration;
-          }
-        } else {
-          // 使用老的文件信息
-          memo.mtime[fileDict.shortPath] = oldMTime;
-          memo.duration[fileDict.shortPath] = oldDuration;
+  await Promise.all(files
+    .filter((file) => {
+      const ext = path.extname(file).toLowerCase();
+      if (supportedSubtitleExtList.includes(ext)) {
+        memo.isContainLyric = true;
+      }
+      return supportedMediaExtList.includes(ext);
+    }) // filter
+    .map((file) => ({
+      fullPath: file,
+      shortPath: file.replace(path.join(dir, "/"), ""),
+    })) // map
+    .map(async (fileDict) => {
+      const fstat = fs.statSync(fileDict.fullPath);
+      const newMTime = Math.round(fstat.mtime.getTime());
+      const oldMTime = oldMemoMtime[fileDict.shortPath];
+      const oldDuration = oldMemoDuration[fileDict.shortPath];
+
+      if (
+        oldMTime === undefined || // 音频文件是新增的
+        oldDuration === undefined || // 此前没有更新过这个文件的duration
+        oldMTime !== newMTime // 或者音频文件的最后修改时间和之前的memo记录不一致，说明文件有修改
+      ) {
+        // 更新duration和mtime
+        console.log(`[RJ${work_id}] update data on file: ${fileDict.fullPath}, fs.mtime: ${fstat.mtime.getTime()}`);
+        memo.mtime[fileDict.shortPath] = newMTime;
+        const duration = await getAudioFileDuration(fileDict.fullPath);
+        if (!isNaN(duration) && typeof duration === "number") {
+          memo.duration[fileDict.shortPath] = duration;
         }
-        // 统计全部音频中不重复的播放时长
-        const track = path.dirname(fileDict.shortPath);
-        const ext = path.extname(fileDict.shortPath);
-        const title = path.basename(fileDict.shortPath).replace(ext, "").replace(/[. ]/g, "").toLowerCase();
-        const trackRegex = /なし|no/;
-        const titleRegex = /seなし/;
-        if (!trackRegex.test(track) && !titleRegex.test(title)) {
-          trackInfo.push({ track: track, title: title, duration: memo.duration[fileDict.shortPath], ext: ext });
-        }
-      }) // map get duration
+      } else {
+        // 使用老的文件信息
+        memo.mtime[fileDict.shortPath] = oldMTime;
+        memo.duration[fileDict.shortPath] = oldDuration;
+      }
+      // 统计全部音频中不重复的播放时长
+      const track = path.dirname(fileDict.shortPath);
+      const ext = path.extname(fileDict.shortPath);
+      const title = path.basename(fileDict.shortPath).replace(ext, "").replace(/[. ]/g, "").toLowerCase();
+      const trackRegex = /なし|no/;
+      const titleRegex = /seなし/;
+      if (!trackRegex.test(track) && !titleRegex.test(title)) {
+        trackInfo.push({ track: track, title: title, duration: memo.duration[fileDict.shortPath], ext: ext });
+      }
+    }) // map get duration
   ); // Promise.all
 
   // 根据标题、播放时长去重，计算作品播放时长
