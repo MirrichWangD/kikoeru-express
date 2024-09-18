@@ -311,84 +311,49 @@ const getWorksBy = ({ id, field, username = "" } = {}) => {
   }
 };
 
-const AdvanceSearchCondType = {
-  UNKNOWN: 0,
-  FUZZY: 1, // 全文模糊搜索，包括标题，
-  VA: 2,
-  TAG: 3,
-  CIRCLE: 4,
-}
-function advanceSearch(conditions, username) {
-  const intersectQueryList = []
-  for (let cond of conditions) {
-    const data = cond.d;
-    if (cond.t === AdvanceSearchCondType.FUZZY) {
-      const circleIdQuery = knex("t_circle").select("id").where("name", "like", `%${data}%`);
-      const tagIdQuery = knex("t_tag").select("id").where("name", "like", `%${data}%`);
-      const vaIdQuery = knex("t_va").select("id").where("name", "like", `%${data}%`);
-
-      const workIdQuery =
-        knex('t_work').select('id as work_id') // 用work_id这个名字来统一所有搜索到的作品id
-          .where('title', 'like', `%${data}%`) // 作品标题名模糊匹配
-          .orWhere('circle_id', 'in', circleIdQuery) // 社团名模糊匹配
-          .union([
-            knex('r_tag_work').select('work_id').where('tag_id', 'in', tagIdQuery), // 标签模糊匹配
-            knex('r_va_work').select('work_id').where('va_id', 'in', vaIdQuery), // 声优模糊匹配
-          ])
-
-      intersectQueryList.push(workIdQuery)
-    }
-  }
-  const ratingSubQuery = knex('t_review')
-    .select(['t_review.work_id', 't_review.rating'])
-    .join('t_work', 't_work.id', 't_review.work_id')
-    .where('t_review.user_name', username).as('userrate')
-
-  // 最终返回的work数据源
-  let query = knex('staticMetadata').select(['staticMetadata.*', 'userrate.rating AS userRating'])
-    .leftJoin(ratingSubQuery, 'userrate.work_id', 'staticMetadata.id');
-
-  // 将前面的多个查询条件通过andWhere叠加到数据源条件中
-  const queryWithConditions = intersectQueryList.reduce((accQuery, idQuery) => accQuery.andWhere("id", "in", idQuery), query)
-  // console.log("advance search query = ", queryWithConditions.toString())
-  return queryWithConditions
-}
-
 /**
  * 根据关键字查询音声
  * @param {String} keyword
  */
-const getWorksByKeyWord = ({ keyword, username = "admin" } = {}) => {
-  const ratingSubQuery = knex("t_review")
-    .select(["t_review.work_id", "t_review.rating"])
-    .join("t_work", "t_work.id", "t_review.work_id")
-    .where("t_review.user_name", username)
-    .as("userrate");
+const getWorksByKeyWord = ({ keywords, username = "admin" } = {}) => {
+  const ratingSubQuery = knex('t_review')
+    .select(['t_review.work_id', 't_review.rating'])
+    .join('t_work', 't_work.id', 't_review.work_id')
+    .where('t_review.user_name', username).as('userrate')
+  const intersectQueryList = [];
+  for (let keyword of keywords) {
+    keyword = keyword.replace(/[$(circle)(va)(tag):]/g, "");
+    // 匹配是否搜索存在RJ号
+    const workid = keyword.match(/((R|r)(J|j))?(\d+)/) ? keyword.match(/((R|r)(J|j))?(\d+)/)[4] : "";
+    if (workid) {
+      return knex("staticMetadata")
+        .select(["staticMetadata.*", "userrate.rating AS userRating"])
+        .leftJoin(ratingSubQuery, "userrate.work_id", "staticMetadata.id")
+        .where("id", "=", workid);
+    }
 
-  const workid = keyword.match(/((R|r)(J|j))?(\d+)/) ? keyword.match(/((R|r)(J|j))?(\d+)/)[4] : "";
-  if (workid) {
-    return knex("staticMetadata")
-      .select(["staticMetadata.*", "userrate.rating AS userRating"])
-      .leftJoin(ratingSubQuery, "userrate.work_id", "staticMetadata.id")
-      .where("id", "=", workid);
+    const circleIdQuery = knex("t_circle").select("id").where("name", "like", `%${keyword}%`);
+    const tagIdQuery = knex("t_tag").select("id").where("name", "like", `%${keyword}%`);
+    const vaIdQuery = knex("t_va").select("id").where("name", "like", `%${keyword}%`);
+
+
+    const workIdQuery = knex('t_work').select('id as work_id') // 用work_id这个名字来统一所有搜索到的作品id
+      .where('title', 'like', `%${keyword}%`) // 作品标题名模糊匹配
+      .orWhere('circle_id', 'in', circleIdQuery) // 社团名模糊匹配
+      .union([
+        knex('r_tag_work').select('work_id').where('tag_id', 'in', tagIdQuery), // 标签模糊匹配
+        knex('r_va_work').select('work_id').where('va_id', 'in', vaIdQuery), // 声优模糊匹配
+      ])
+
+    intersectQueryList.push(workIdQuery);
   }
 
-  const circleIdQuery = knex("t_circle").select("id").where("name", "like", `%${keyword}%`);
+  let query = knex('staticMetadata').select(['staticMetadata.*', 'userrate.rating AS userRating'])
+    .leftJoin(ratingSubQuery, 'userrate.work_id', 'staticMetadata.id');
 
-  const tagIdQuery = knex("t_tag").select("id").where("name", "like", `%${keyword}%`);
-  const vaIdQuery = knex("t_va").select("id").where("name", "like", `%${keyword}%`);
+  const queryWithConditions = intersectQueryList.reduce((accQuery, idQuery) => accQuery.andWhere("id", "in", idQuery), query)
 
-  const workIdQuery = knex("r_tag_work")
-    .select("work_id")
-    .where("tag_id", "in", tagIdQuery)
-    .union([knex("r_va_work").select("work_id").where("va_id", "in", vaIdQuery)]);
-
-  return knex("staticMetadata")
-    .select(["staticMetadata.*", "userrate.rating AS userRating"])
-    .leftJoin(ratingSubQuery, "userrate.work_id", "staticMetadata.id")
-    .where("title", "like", `%${keyword}%`)
-    .orWhere("circle_id", "in", circleIdQuery)
-    .orWhere("id", "in", workIdQuery);
+  return queryWithConditions;
 };
 
 /**
@@ -622,6 +587,5 @@ module.exports = {
   deleteUserReview,
   getWorkMemo,
   setWorkMemo,
-  advanceSearch,
   databaseExist,
 };

@@ -110,12 +110,9 @@ router.get('/works',
 
       res.send({
         works,
-        pagination: {
-          currentPage,
-          pageSize: PAGE_SIZE,
-          totalCount: totalCount[0]['count'],
-          pages: Math.ceil(totalCount[0]['count'] / PAGE_SIZE)
-        }
+        page: currentPage,
+        pageSize: PAGE_SIZE,
+        totalCount: totalCount[0]["count"],
       });
     } catch (err) {
       res.status(500).send({ error: '服务器错误' });
@@ -149,8 +146,8 @@ router.get('/:field(circle|tag|va)s/:id',
 
 // eslint-disable-next-line no-unused-vars
 router.get('/search', async (req, res, next) => {
-  const keyword = req.query.keyword ? req.query.keyword.trim() : '';
-  const isAdvance = 1 === parseInt(req.query.isAdvance || "0") // 是否开启高级搜索模式
+  // const keyword = req.query.keyword ? req.query.keyword.trim() : '';
+  const keywords = req.query.keywords;
   const currentPage = parseInt(req.query.page) || 1;
   // 通过 "音声id, 贩卖日, 用户评价， 售出数, 评论数量, 价格, 平均评价, 全年龄新作" 排序
   // ['id', 'release', 'rating', 'dl_count', 'review_count', 'price', 'rate_average_2dp', 'nsfw']
@@ -161,20 +158,10 @@ router.get('/search', async (req, res, next) => {
   const shuffleSeed = req.query.seed ? req.query.seed : 7;
 
   try {
-    let query = null;
-    if (isAdvance) {
-      const conditions = JSON.parse(keyword);
-      query = () => db.advanceSearch(conditions, username);
-    } else {
-      query = () => db.getWorksByKeyWord({ keyword: keyword, username: username });
-    }
-
-    // const query = () => db.getWorksByKeyWord({keyword: keyword, username: username});
-
+    const query = () => db.getWorksByKeyWord({ keywords: keywords, username: username });
     const totalCount = await query().count('id as count');
 
     let works = null;
-
     if (order === 'random') {
       works = await query().offset(offset).limit(PAGE_SIZE).orderBy(db.knex.raw('id % ?', shuffleSeed));
     } else {
@@ -186,11 +173,9 @@ router.get('/search', async (req, res, next) => {
 
     res.send({
       works,
-      pagination: {
-        currentPage,
-        pageSize: PAGE_SIZE,
-        totalCount: totalCount[0]['count']
-      }
+      page: currentPage,
+      pageSize: PAGE_SIZE,
+      totalCount: totalCount[0]["count"],
     });
   } catch (err) {
     res.status(500).send({ error: '查询过程中出错' });
@@ -198,66 +183,5 @@ router.get('/search', async (req, res, next) => {
     // next(err);
   }
 });
-
-// GET list of work ids, restricted by circle/tag/VA
-router.get('/:field(circle|tag|va)s/:id/works',
-  param('field').isIn(['circle', 'tag', 'va']),
-  // eslint-disable-next-line no-unused-vars
-  async (req, res, next) => {
-    // In case regex matching goes wrong
-    if (!isValidRequest(req, res)) return;
-
-    const currentPage = parseInt(req.query.page) || 1;
-    // 通过 "音声id, 贩卖日, 用户评价, 售出数, 评论数量, 价格, 平均评价, 全年龄新作" 排序
-    // ['id', 'release', 'rating', 'dl_count', 'review_count', 'price', 'rate_average_2dp, 'nsfw']
-    const order = req.query.order || 'release';
-    const sort = req.query.sort || 'desc'; // ['desc', 'asc]
-    const offset = (currentPage - 1) * PAGE_SIZE;
-    const username = config.auth ? req.user.name : 'admin';
-    const shuffleSeed = req.query.seed ? req.query.seed : 7;
-
-    try {
-      const query = () => db.getWorksBy({ id: req.params.id, field: req.params.field, username: username });
-      const totalCount = await query().count('id as count');
-
-      let works = null;
-
-      if (order === 'random') {
-        works = await query().offset(offset).limit(PAGE_SIZE).orderBy(db.knex.raw('id % ?', shuffleSeed));
-      } else {
-        works = await query().offset(offset).limit(PAGE_SIZE).orderBy(order, sort)
-          .orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
-      }
-
-      works = normalize(works);
-
-      res.send({
-        works,
-        pagination: {
-          currentPage,
-          pageSize: PAGE_SIZE,
-          totalCount: totalCount[0]['count']
-        }
-      });
-    } catch (err) {
-      res.status(500).send({ error: '查询过程中出错' });
-      console.error(err);
-      // next(err);
-    }
-  });
-
-// GET list of circles/tags/VAs
-router.get('/:field(circle|tag|va)s/',
-  param('field').isIn(['circle', 'tag', 'va']),
-  (req, res, next) => {
-    // In case regex matching goes wrong
-    if (!isValidRequest(req, res)) return;
-
-    const field = req.params.field;
-    db.getLabels(field)
-      .orderBy(`name`, 'asc')
-      .then(list => res.send(list))
-      .catch(err => next(err));
-  });
 
 module.exports = router;
