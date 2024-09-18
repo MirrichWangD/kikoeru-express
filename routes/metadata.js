@@ -146,7 +146,6 @@ router.get('/:field(circle|tag|va)s/:id',
 
 // eslint-disable-next-line no-unused-vars
 router.get('/search', async (req, res, next) => {
-  // const keyword = req.query.keyword ? req.query.keyword.trim() : '';
   const keywords = req.query.keywords;
   const currentPage = parseInt(req.query.page) || 1;
   // 通过 "音声id, 贩卖日, 用户评价， 售出数, 评论数量, 价格, 平均评价, 全年龄新作" 排序
