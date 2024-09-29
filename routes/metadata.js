@@ -183,4 +183,18 @@ router.get('/search', async (req, res, next) => {
   }
 });
 
+// GET list of circles/tags/VAs
+router.get('/:field(circle|tag|va)s/',
+  param('field').isIn(['circle', 'tag', 'va']),
+  (req, res, next) => {
+    // In case regex matching goes wrong
+    if (!isValidRequest(req, res)) return;
+
+    const field = req.params.field;
+    db.getLabels(field)
+      .orderBy(`name`, 'asc')
+      .then(list => res.send(list))
+      .catch(err => next(err));
+  });
+
 module.exports = router;
