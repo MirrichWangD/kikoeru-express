@@ -108,6 +108,9 @@ router.get('/works',
 
       works = normalize(works);
 
+      console.log(totalCount[0]["count"])
+      console.log(PAGE_SIZE);
+
       res.send({
         works,
         page: currentPage,
