@@ -118,7 +118,7 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 
 ## 感谢
 
-本项目是基于以下大佬的开源代码进行二次开发，用于管理本地音色文件夹。在这里特此感谢大佬们用爱发电，并且欢迎各位一起交流学习（本人前端小白）。
+本项目是基于以下大佬的开源代码进行二次开发，特此感谢大佬们用爱发电！
 
 - [**kikoeru**](https://github.com/nortonandrews/kikoeru)
 - [**umonaca**](https://github.com/umonaca/kikoeru-express)
