@@ -16,6 +16,8 @@
 
 ## 源码安装部署
 
+建议使用`NodeJS-14.17.1`版本进行安装部署。
+
 将kikoeru-quasar项目生成的SPA或PWA文件夹全部文件置于`dist`文件夹下，确保`dist/index.html`存在，然后：
 
 ```bash
