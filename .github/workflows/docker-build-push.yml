@@ -33,19 +33,19 @@ jobs:
 
     - name: Build the Docker image
       run: |
-        IMAGE_NAME="mirrichwangd/kikoeru:${{ steps.get_version.outputs.version }}"
+        IMAGE_NAME="mirrichwangd/kikoeru:v${{ steps.get_version.outputs.version }}"
         echo "Building image: $IMAGE_NAME"
         docker build . -t $IMAGE_NAME
     
     - name: Tag the image as latest
       run: |
-        IMAGE_NAME="mirrichwangd/kikoeru:${{ steps.get_version.outputs.version }}"
+        IMAGE_NAME="mirrichwangd/kikoeru:v${{ steps.get_version.outputs.version }}"
         echo "Tagging image as latest: mirrichwangd/kikoeru:latest"
         docker tag $IMAGE_NAME mirrichwangd/kikoeru:latest
 
     - name: Push the Docker images
       run: |
-        IMAGE_NAME="mirrichwangd/kikoeru:${{ steps.get_version.outputs.version }}"
+        IMAGE_NAME="mirrichwangd/kikoeru:v${{ steps.get_version.outputs.version }}"
         echo "Pushing image: $IMAGE_NAME"
         docker push $IMAGE_NAME
         echo "Pushing image: mirrichwangd/kikoeru:latest"
