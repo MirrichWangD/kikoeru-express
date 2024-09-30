@@ -21,7 +21,7 @@ const supportedExtList = ["txt", "pdf"] + supportedImageExtList + supportedMedia
 
 async function getAudioFileDuration(filePath) {
   try {
-    const ffprobePath = typeof process.pkg !== "undefined" ? "ffprobe" : ffprobeStatic;
+    const ffprobePath = typeof process.pkg !== "undefined" ? "ffprobe" : ffprobeStatic.path;
     const { stdout } = await execFile(ffprobePath, [
       "-v",
       "error",
