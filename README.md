@@ -1,9 +1,18 @@
 # Kikoeru
-一个同人音声专用的音乐流媒体服务器，详细的使用说明见[**用户文档**](https://github.com/umonaca/kikoeru-express/wiki/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E)
+
+一个同人音声专用的音乐流媒体服务器，详细的使用说明见[**用户文档**](https://github.com/umonaca/kikoeru-express/wiki/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E)。
+
+本项目基于以下大佬开源代码进行二次开发（在这里鸣谢大佬用爱发电！）：
+
+- [**umonaca**](https://github.com/umonaca/kikoeru-express)
+- [**number178**](https://https://github.com/Number178/kikoeru-express)
+
+---
 
 [![unstable build status](https://github.com/umonaca/kikoeru-express/actions/workflows/build-artifacts.yml/badge.svg)](https://github.com/umonaca/kikoeru-express/actions)
 
 ### 功能介绍
+
 - 从 DLSite 爬取音声元数据
 - 对音声标记进度、打星、写评语
 - 通过标签或关键字快速检索想要找到的音声
@@ -13,7 +22,9 @@
 - 支持为音声库添加多个根文件夹
 
 ### 源码安装部署
+
 将kikoeru-quasar项目生成的SPA或PWA文件夹全部文件置于`dist`文件夹下，确保`dist/index.html`存在，然后：
+
 ```bash
 # 安装依赖
 npm install
@@ -23,6 +34,7 @@ npm start
 
 # Express listening on http://[::]:8888
 ```
+
 关于选择PWA还是SPA：  
 区别仅仅在于有无Service Worker，由于Service Worker只能在本地和HTTPS上运行，因此如果远程以HTTP方式打开，PWA和SPA二者没有任何区别。也就是说，如果Kikoeru的主要用途是在移动设备上局域网播放，并且您没有配置HTTPS证书，那么实际上打开的都是SPA。  
 PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器“添加到桌面”的方式安装成App。作者自己使用的前端版本。  
@@ -32,6 +44,7 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 使用docker-compose只需调整`docker-compose.yml`内的挂载位置以符合您的存储路径即可。
 
 ### 技术栈
+
 - axios (网络请求)
 - express (构建后端服务)
 - sqlite3 (文件型数据库)
@@ -45,8 +58,8 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 - child_process (nodejs 子进程)
 - pkg (打包为可执行文件)
 
-
 ### 项目目录结构
+
 ```
 ├── routes/                  # 主要路由
 ├── config/                  # 存放配置文件
@@ -72,8 +85,8 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 ├── Changelog.md             # 最近的版本历史
 ```
 
-
 ### TODO
+
 - [x] 可拖动歌词控件
 - [x] 二级页面返回按钮
 - [x] 手动星标
@@ -87,7 +100,7 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 - [x] 刷新元数据
 - [x] 不清理作品
 - [x] 修复扫描阻塞
-- [ ] 使用ID标识文件夹
+- [x] 使用ID标识文件夹
 - [x] 整理路由等
 - [ ] 单元测试、CI
 - [ ] Insersection Observer
@@ -111,11 +124,14 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 - [x] 扫描设置
 
 ### 感谢
+
 本项目的大部分后端代码来自于开源项目 [kikoeru](https://github.com/nortonandrews/kikoeru)
 
 ### 声明
+
 本项目作为开源软件，本身不包含任何版权内容或其它违反法律的内容。项目中的程序是为了个人用户管理自己所有的合法数据资料而设计的。  
 程序作者并不能防止内容提供商（如各类网站）或其它用户使用本程序提供侵权或其它非法内容。程序作者与使用本程序的各类内容提供商并无联系，不为其提供技术支持，也不为其不当使用承担法律责任。
 
 ### 许可协议
+
 GNU General Public License v3.0
