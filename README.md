@@ -1,8 +1,10 @@
 # Kikoeru
 
-一个同人音声专用的音乐流媒体服务器，详细的使用说明见[**用户文档**](https://github.com/umonaca/kikoeru-express/wiki/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E)。
+一个同人音声专用的音乐流媒体服务器，详细的使用说明见[**用户文档**](./用户文档.md)。
 
-本项目基于以下大佬开源代码进行二次开发（在这里鸣谢大佬用爱发电！）：
+## 前言
+
+本项目是基于以下大佬的开源代码进行二次开发，用于管理本地音色文件夹。在这里特此感谢大佬们用爱发电，并且欢迎各位一起交流学习（本人前端小白）。
 
 - [**umonaca**](https://github.com/umonaca/kikoeru-express)
 - [**number178**](https://https://github.com/Number178/kikoeru-express)
