@@ -1,0 +1,52 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout code
+      uses: actions/checkout@v4
+
+    - name: Get package.json version
+      id: get_version
+      run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "Package Version: $VERSION"
+          echo "::set-output name=version::$VERSION"
+
+    - name: login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build the Docker image
+      run: |
+        IMAGE_NAME="mirrichwangd/kikoeru:${{ steps.get_version.outputs.version }}"
+        echo "Building image: $IMAGE_NAME"
+        docker build . -t $IMAGE_NAME
+    
+    - name: Tag the image as latest
+      run: |
+        IMAGE_NAME="mirrichwangd/kikoeru:${{ steps.get_version.outputs.version }}"
+        echo "Tagging image as latest: mirrichwangd/kikoeru:latest"
+        docker tag $IMAGE_NAME mirrichwangd/kikoeru:latest
+
+    - name: Push the Docker images
+      run: |
+        IMAGE_NAME="mirrichwangd/kikoeru:${{ steps.get_version.outputs.version }}"
+        echo "Pushing image: $IMAGE_NAME"
+        docker push $IMAGE_NAME
+        echo "Pushing image: mirrichwangd/kikoeru:latest"
+        docker push mirrichwangd/kikoeru:latest
