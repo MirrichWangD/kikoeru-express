@@ -616,7 +616,7 @@ async function fixVoiceActorBug() {
 
 async function refreshWorks(query, idColumnName, processor) {
   return query.then(async (works) => {
-    ger.main.info(`共 ${works.length} 个音声. 开始刷新`);
+    logger.main.info(`共 ${works.length} 个音声. 开始刷新`);
 
     const counts = { updated: 0, failed: 0 };
 
