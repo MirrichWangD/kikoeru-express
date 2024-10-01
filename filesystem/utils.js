@@ -11,6 +11,14 @@ const execFile = util.promisify(require("child_process").execFile);
 
 const ffprobeStatic = require("ffprobe-static");
 
+// 日期时间options
+const datetimeOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+};
+
 // 支持文件后缀类型
 // '.ass' only support show on file list, not for play lyric
 const supportedSubtitleExtList = [".lrc", ".srt", ".ass", ".vtt"];
@@ -37,6 +45,22 @@ async function getAudioFileDuration(filePath) {
     console.error(`get duration failed, file = ${filePath}`, err);
   }
   return NaN;
+}
+
+/**
+ * 是否包含字幕
+ * @param {Number} id Work identifier. Currently, RJ/RE code. 
+ * @param {String} dir Work directory (absolute).
+ * @returns 
+ */
+async function isContainLyric(id, dir) {
+  const files = await recursiveReaddir(dir);
+  const lyricFiles = files.filter((file) => {
+    const ext = path.extname(file).toLocaleLowerCase();
+    return supportedSubtitleExtList.includes(ext);
+  })
+  console.log(`-> [RJ${id}] 共找到字幕文件 ${lyricFiles.length} 个.`)
+  return lyricFiles.length > 0;
 }
 
 /**
@@ -216,9 +240,7 @@ async function* getFolderList(rootFolder, current = "", depth = 0, callback = fu
     const absolutePath = path.resolve(rootFolder.path, current, folder);
     const relativePath = path.join(current, folder);
     const birthTime = fs.statSync(absolutePath).birthtime;
-    const dateStr = birthTime.toLocaleDateString("zh-cn", { year: "numeric", month: "2-digit", day: "2-digit" });
-    const timeStr = birthTime.toLocaleTimeString("zh-cn", { hour12: false });
-    const addTime = `${dateStr.replace(/\//g, "-")} ${timeStr}`;
+    const addTime = birthTime.toLocaleString([], datetimeOptions).replace(/\//g, "-");
 
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -301,6 +323,8 @@ module.exports = {
   getFolderList,
   deleteCoverImageFromDisk,
   saveCoverImageToDisk,
+  isContainLyric,
+  datetimeOptions,
   supportedMediaExtList,
   supportedSubtitleExtList,
   supportedImageExtList,

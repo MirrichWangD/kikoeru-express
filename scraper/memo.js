@@ -48,12 +48,13 @@ async function scrapeWorkMemo(work_id, dir, oldMemo) {
         oldMTime !== newMTime // 或者音频文件的最后修改时间和之前的memo记录不一致，说明文件有修改
       ) {
         // 更新duration和mtime
-        console.log(`[RJ${work_id}] update data on file: ${fileDict.fullPath}, fs.mtime: ${fstat.mtime.getTime()}`);
         memo.mtime[fileDict.shortPath] = newMTime;
         const duration = await getAudioFileDuration(fileDict.fullPath);
         if (!isNaN(duration) && typeof duration === "number") {
           memo.duration[fileDict.shortPath] = duration;
         }
+        const message = `"${ fileDict.shortPath }" (${ duration }s), 上一次更改: ${fstat.mtime.toLocaleString()}`
+        console.log(`-> [RJ${work_id}] ${message}`);
       } else {
         // 使用老的文件信息
         memo.mtime[fileDict.shortPath] = oldMTime;

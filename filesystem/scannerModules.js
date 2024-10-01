@@ -10,7 +10,7 @@ const { scrapeWorkMemo } = require("../scraper/memo");
 const db = require("../database/db");
 const { createSchema } = require("../database/schema");
 
-const { getFolderList, deleteCoverImageFromDisk, saveCoverImageToDisk } = require("./utils");
+const { getFolderList, deleteCoverImageFromDisk, saveCoverImageToDisk, isContainLyric } = require("./utils");
 const { md5 } = require("../auth/utils");
 const { nameToUUID } = require("../scraper/utils");
 
@@ -162,11 +162,11 @@ async function scrapeWorkMetadata(id, language) {
   return scrapeWorkMetadataFromDLsite(id, language)
     .then((metadata) => { return metadata })
     .catch((err) => {
-      logger.task.warn(rjcode, `DLsite获取元数据失败: ${err.message}`);
+      logger.task.warn(rjcode, `DLsite 获取元数据失败: ${err.message}`);
       return scrapeWorkMetadataFromAsmrOne(id, language)
         .then((metadata) => { return metadata })
         .catch((err) => {
-          logger.task.warn(rjcocde, `asmr-one获取元数据失败: ${err.message}`);
+          logger.task.warn(rjcocde, `asmr-one 获取元数据失败: ${err.message}`);
           throw err;
         });
     });
@@ -184,8 +184,7 @@ async function getMetadata(folder, tagLanguage) {
   // 先从DLsite抓取元数据，若失败则从asmr-one抓取元数据
   return scrapeWorkMetadata(folder.id, tagLanguage)
     .then((metadata) => {
-      logger.task.info(rjcode, "元数据抓取成功，准备获取作品播放时长...");
-      logger.task.info(rjcode, "作品播放时长获取成功，准备添加到数据库...");
+      logger.task.info(rjcode, "元数据抓取成功! 添加到数据库...");
 
       metadata.rootFolderName = folder.rootFolderName;
       metadata.dir = folder.relativePath;
@@ -193,16 +192,16 @@ async function getMetadata(folder, tagLanguage) {
 
       return db.insertWorkMetadata(metadata)
         .then(() => {
-          logger.task.info(rjcode, "元数据成功添加到数据库.");
+          logger.task.info(rjcode, "数据库: 元数据添加成功.");
           return "added";
         })
         .catch((err) => {
-          logger.task.warn(rjcode, `元数据添加失败: ${err.message}`);
+          logger.task.warn(rjcode, `数据库: 元数据添加失败: ${err.message}`);
           return "failed";
         });
     })
     .catch((err) => {
-      logger.task.warn(rjcode, `元数据抓取失败: ${err.message}`);
+      logger.task.warn(rjcode, `数据库: 元数据抓取失败: ${err.message}`);
       return "failed";
     });
 }
@@ -240,8 +239,6 @@ const getCoverImage = (id, types) => {
     );
   });
 
-  logger.task.info(rjcode, `从 DLsite 下载封面...`);
-
   return Promise.all(promises).then((results) => {
     results.forEach((result) => {
       if (result === "failed") {
@@ -259,21 +256,22 @@ const getCoverImage = (id, types) => {
  * @param {string} dir 文件夹路径
  */
 async function getWorkMemo(id, dir, readMemo = {}) {
+  logger.task.info(id, "开始扫描本地文件数据...")
   return scrapeWorkMemo(id, dir, readMemo)
-    .then(({ workDuration: workDuration, memo: memo }) => {
-      logger.task.info(id, "作品本地文件播放时长扫描成功，准备添加到数据库.");
+    .then(({ workDuration, memo }) => {
+      logger.task.info(id, "本地文件数据扫描成功, 添加到数据库...");
       db.setWorkMemo(id, workDuration, memo)
         .then(() => {
-          logger.task.info(id, "数据库作品本地信息添加成功.");
+          logger.task.info(id, "数据库: 本地文件数据添加成功.");
           return "added";
         })
         .catch((err) => {
-          logger.task.warn(id, "数据库作品本地信息添加失败.");
+          logger.task.warn(id, "数据库: 本地文件数据添加失败.");
           return "failed";
         });
     })
     .catch((err) => {
-      logger.task.warn(id, `作品本地文件播放时长扫描失败: ${err.messsage}`);
+      logger.task.warn(id, `本地文件数据扫描失败: ${err.messsage}`);
     });
 }
 
@@ -321,21 +319,21 @@ async function processFolder(folder) {
             // 如果获取元数据失败，跳过封面图片下载
             return "failed";
           } else {
-            // 下载封面图片
             return getWorkMemo(folder.id, folder.absolutePath).then((result) => {
-              if (result === "failed") { 
+              if (result === "failed") {
                 return "failed";
               } else {
+                // 下载封面图片
+                logger.task.info(rjcode, "从 DLsite 下载封面...");
                 return getCoverImage(folder.id, coverTypes);
               }
             });
-            // return getCoverImage(folder.id, coverTypes);
           }
         });
       }
     });
 }
-
+ 
 const MAX = config.maxParallelism; // 并发请求上限
 const limitP = new LimitPromise(MAX); // 核心控制器
 /**
@@ -618,7 +616,7 @@ async function fixVoiceActorBug() {
 
 async function refreshWorks(query, idColumnName, processor) {
   return query.then(async (works) => {
-    logger.main.info(`共 ${works.length} 个音声. 开始刷新`);
+    ger.main.info(`共 ${works.length} 个音声. 开始刷新`);
 
     const counts = { updated: 0, failed: 0 };
 
@@ -630,7 +628,7 @@ async function refreshWorks(query, idColumnName, processor) {
         const result = (await processor(workid)) === "failed" ? "failed" : "updated";
 
         counts[result]++;
-        logger.task.remove(rjcode, result);
+        ger.task.remove(rjcode, result);
         logger.result.add(rjcode, result, counts[result]);
       })
     );
@@ -643,9 +641,7 @@ async function refreshWorks(query, idColumnName, processor) {
 // 扫描一个作品的文件夹中的文件信息
 // 例如音频时长、是否包含歌词文件等
 async function scanWorkFile(work, index, total) {
-  const rjcode = formatID(work.id);
-
-  LOG.main.info(`扫描进度：${index + 1}/${total}`);
+  logger.main.info(`-> [扫描${index + 1}/${total}] 文件夹: "${work.dir}"`);
 
   try {
     const rootFolder = config.rootFolders.find((rootFolder) => rootFolder.name === work.root_folder);
@@ -654,34 +650,35 @@ async function scanWorkFile(work, index, total) {
     // lyric status
     const absoluteWorkDir = path.join(rootFolder.path, work.dir);
     const hasLocalLyric = await isContainLyric(work.id, absoluteWorkDir);
-    if (await db.updateWorkLocalLyricStatus(hasLocalLyric, work.lyric_status, work.id)) {
-      LOG.main.info(`[RJ${rjcode}] 歌词状态发生改变`);
-    }
-
+    // if (await db.updateWorkLocalLyricStatus(hasLocalLyric, work.lyric_status, work.id)) {
+    //   logger.main.info(`[RJ${rjcode}] 歌词状态发生改变`);
+    // }
+    // local memory data
+    const localMemo = JSON.parse(work.memo) || {};
     // work memo, for instance, memorize all audio durations
-    const memo = await scrapeWorkMemo(
-      work.id,
-      absoluteWorkDir,
-      typeof work.memo === "string"
-        ? JSON.parse(work.memo)
-        : {
-          /* fallback empty object as memo */
-        }
-    );
-    await db.setWorkMemo(work.id, memo);
+    return scrapeWorkMemo(work.id, absoluteWorkDir, localMemo).then(async ({ workDuration, memo }) => {
+      return db.setWorkMemo(work.id, workDuration, memo).then(() => {
+        return "updated";
+      }).catch((err) => {
+        logger.main.error(`[RJ${work.id}] 更新数据库时发生错误: ${err}.`);
+        return "failed";
+      })
+    }).catch((err) => {
+      logger.main.error(`[RJ${work.id}] 扫描本地文件夹时发生错误: ${err}.`);
+      return "failed";
+    });
 
-    return "updated";
   } catch (error) {
-    LOG.main.error(`[RJ${rjcode}] 扫描歌词过程中发生错误：${error}`);
+    logger.main.error(`[RJ${work.id}] 扫描歌词过程中发生错误：${error}.`);
     console.error(error.stack);
     return "failed";
   }
 }
 const scanWorkFileLimited = (work, index, total) => limitP.call(scanWorkFile, work, index, total);
-async function performWorkFileScan() {
-  LOG.main.info(`扫描本地文件开始`);
-  const works = await db.knex("t_work").select("id", "root_folder", "dir", "lyric_status", "memo");
-  LOG.main.info(`总计 ${works.length} 个作品`);
+async function performModify() {
+  logger.main.info(`-> 本地音色文件夹扫描开始...`);
+  const works = await db.knex("t_work").select("id", "root_folder", "dir", "memo");
+  logger.main.info(`-> 共找到 ${works.length} 个作品.`);
 
   const results = await Promise.all(works.map((work, index) => scanWorkFileLimited(work, index, works.length)));
 
@@ -692,10 +689,10 @@ async function performWorkFileScan() {
   });
 
   const message = `扫描完成: 更新 ${counts.updated} 个，失败 ${counts.failed} 个，跳过 ${counts.skipped} 个.`;
-  LOG.finish(message);
+  logger.finish(message);
   db.knex.destroy();
   if (counts.failed) process.exit(1);
   process.exit(0);
 }
 
-module.exports = { performScan, performUpdate, performWorkFileScan };
+module.exports = { performScan, performUpdate, performModify };

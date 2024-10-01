@@ -176,6 +176,8 @@ const scrapeDynamicWorkMetadataFromDLsite = id => new Promise((resolve, reject) 
   const rjcode = id;
   const url = `https://www.dlsite.com/maniax-touch/product/info/ajax?product_id=RJ${rjcode}`;
 
+  console.log(`-> [RJ${rjcode}] 从 DLSite 抓取 Dynamic 元数据中...`);
+
   axios.retryGet(url, { retry: {} })
     .then(response => response.data[`RJ${rjcode}`])
     .then((data) => {
@@ -189,7 +191,6 @@ const scrapeDynamicWorkMetadataFromDLsite = id => new Promise((resolve, reject) 
       if (data.rank.length) {
         work.rank = data.rank; // 成绩
       }
-      console.log(`[RJ${rjcode}] 成功从 DLSite 抓取Dynamic元数据...`);
       resolve(work);
     })
     .catch((error) => {

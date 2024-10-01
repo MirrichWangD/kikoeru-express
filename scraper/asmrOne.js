@@ -28,6 +28,8 @@ async function scrapeWorkMetadataFromAsmrOne(id) {
 
   const rjcode = id;
   const url = `https://api.asmr-200.com/api/workInfo/${rjcode}`;
+
+  console.log(`-> [RJ${rjcode}] 从 asmr-one 抓取 Dynamic 元数据中...`);
   const response = await axios.retryGet(url, {
     retry: {},
     headers: { cookie: "locale=zh-cn" },
