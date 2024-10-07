@@ -100,7 +100,7 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 - [ ] 单元测试、CI
 - [ ] Insersection Observer
 - [ ] 可编辑标签
-- [ ] 重新扫描
+- [x] 重新扫描
 - [ ] Dark Mode
 - [ ] 重构WorkCard和WorkDetail
 - [ ] 使用vuex重构收藏
