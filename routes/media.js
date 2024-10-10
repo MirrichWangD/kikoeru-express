@@ -120,18 +120,18 @@ router.get('/check-lrc/:id/:index',
     if (!isValidRequest(req, res)) return;
 
     db.knex('t_work')
-      .select('root_folder', 'dir', "memo")
+      .select('root_folder', 'dir', 'lyric_status')
       .where('id', '=', req.params.id)
       .first()
       .then((work) => {
         const rootFolder = config.rootFolders.find(rootFolder => rootFolder.name === work.root_folder);
-        const workMemo = JSON.parse(work.memo);
         if (rootFolder) {
           getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
             .then((tracks) => {
               const track = tracks[req.params.index];
+              let responseSent = false;
 
-              if (!workMemo.isContainLyric) {
+              if (!work.lyric_status) {
                 res.send({ result: false, message: '不存在歌词文件', hash: '' });
               } else {
                 const lrcFileName = track.title.substring(0, track.title.lastIndexOf(".")) + ".lrc";
@@ -139,8 +139,12 @@ router.get('/check-lrc/:id/:index',
                 tracks.forEach(trackItem => {
                   if (trackItem.title === lrcFileName) {
                     res.send({ result: true, message: '找到歌词文件', hash: trackItem.hash });
+                    responseSent = true;
                   }
-                })
+                });
+                if (!responseSent) {
+                  res.send({ result: false, message: "该文件不存在歌词文件", hash: "" });
+                }
               }
             })
             .catch(err => next(err));

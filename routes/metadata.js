@@ -85,25 +85,46 @@ router.get('/works',
     // ['id', "add_time', 'release', 'rating', 'dl_count', 'review_count', 'price', 'rate_average_2dp, nsfw']
     const order = req.query.order || 'add_time';
     const sort = req.query.sort || 'desc';
-    const offset = (currentPage - 1) * PAGE_SIZE;
+    const lyricStatus = JSON.parse(req.query.lyricStatus);
+    const pageSize = parseInt(req.query.pageSize) || PAGE_SIZE
+    const offset = (currentPage - 1) * pageSize;
     const username = config.auth ? req.user.name : 'admin';
     const shuffleSeed = req.query.seed ? req.query.seed : 7;
 
     try {
       const query = () => db.getWorksBy({ username: username });
-      const totalCount = await query().count('id as count');
-
-      let works = null;
-
-      if (order === 'random') {
-        // 随机排序+分页 hack
-        works = await query().offset(offset).limit(PAGE_SIZE).orderBy(db.knex.raw('id % ?', shuffleSeed));
-      } else if (order === 'betterRandom') {
-        // 随心听专用，不支持分页
-        works = await query().limit(1).orderBy(db.knex.raw('random()'));
+      let totalCount;
+      let works;
+      if (lyricStatus) {
+        totalCount = await query().where("lyric_status", "=", lyricStatus).count('id as count');
+        if (order === 'random') {
+          // 随机排序+分页 hack
+          works = await query()
+            .where("lyric_status", "=", lyricStatus)
+            .offset(offset).limit(pageSize)
+            .orderBy(db.knex.raw('id % ?', shuffleSeed));
+        } else if (order === 'betterRandom') {
+          // 随心听专用，不支持分页
+          works = await query().where("lyric_status", "=", lyricStatus).limit(1).orderBy(db.knex.raw('random()'));
+        } else {
+          works = await query()
+            .where("lyric_status", "=", lyricStatus)
+            .offset(offset).limit(pageSize)
+            .orderBy(order, sort).orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+        }
       } else {
-        works = await query().offset(offset).limit(PAGE_SIZE).orderBy(order, sort)
-          .orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+        totalCount = await query().count('id as count');
+        if (order === 'random') {
+          // 随机排序+分页 hack
+          works = await query().offset(offset).limit(pageSize).orderBy(db.knex.raw('id % ?', shuffleSeed));
+        } else if (order === 'betterRandom') {
+          // 随心听专用，不支持分页
+          works = await query().limit(1).orderBy(db.knex.raw('random()'));
+        } else {
+          works = await query()
+            .offset(offset).limit(pageSize)
+            .orderBy(order, sort).orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+        }
       }
 
       works = normalize(works);
@@ -111,7 +132,7 @@ router.get('/works',
       res.send({
         works,
         page: currentPage,
-        pageSize: PAGE_SIZE,
+        pageSize: pageSize,
         totalCount: totalCount[0]["count"],
       });
     } catch (err) {
@@ -152,20 +173,40 @@ router.get('/search', async (req, res, next) => {
   // ['id', 'release', 'rating', 'dl_count', 'review_count', 'price', 'rate_average_2dp', 'nsfw']
   const order = req.query.order || 'release';
   const sort = req.query.sort || 'desc';
-  const offset = (currentPage - 1) * PAGE_SIZE;
+  const lyricStatus = JSON.parse(req.query.lyricStatus);
+  const pageSize = parseInt(req.query.pageSize) || PAGE_SIZE
+  const offset = (currentPage - 1) * pageSize;
   const username = config.auth ? req.user.name : 'admin';
   const shuffleSeed = req.query.seed ? req.query.seed : 7;
 
   try {
     const query = () => db.getWorksByKeyWord({ keywords: keywords, username: username });
-    const totalCount = await query().count('id as count');
-
-    let works = null;
-    if (order === 'random') {
-      works = await query().offset(offset).limit(PAGE_SIZE).orderBy(db.knex.raw('id % ?', shuffleSeed));
+    let totalCount;
+    let works;
+    if (lyricStatus) {
+      totalCount = await query().where("lyric_status", "=", lyricStatus).count('id as count');
+      if (order === 'random') {
+        works = await query()
+          .where("lyric_status", "=", lyricStatus)
+          .offset(offset).limit(pageSize)
+          .orderBy(db.knex.raw('id % ?', shuffleSeed));
+      } else {
+        works = await query()
+          .where("lyric_status", "=", lyricStatus)
+          .offset(offset).limit(pageSize)
+          .orderBy(order, sort).orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+      }
     } else {
-      works = await query().offset(offset).limit(PAGE_SIZE).orderBy(order, sort)
-        .orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+      totalCount = await query().count('id as count');
+      if (order === 'random') {
+        works = await query()
+          .offset(offset).limit(pageSize)
+          .orderBy(db.knex.raw('id % ?', shuffleSeed));
+      } else {
+        works = await query()
+          .offset(offset).limit(pageSize)
+          .orderBy(order, sort).orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+      }
     }
 
     works = normalize(works);

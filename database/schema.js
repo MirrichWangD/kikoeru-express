@@ -1,6 +1,6 @@
 const { knex } = require('./db');
 
-const dbVersion = '20210502081522';
+const dbVersion = '20241008215053';
 
 // 数据库结构
 const createSchema = () => knex.schema
@@ -17,10 +17,6 @@ const createSchema = () => knex.schema
     table.boolean("nsfw"); // BOOLEAN 类型
     table.string("release"); // VARCHAR 类型 [贩卖日 (YYYY-MM-DD)]
 
-    table.string("add_time"); // VARCHAR 类型 [文件夹添加时间 (YYYY-MM-DD HH:MM:SS)]
-    table.integer("duration"); // FLOAT 类型 [作品全部track时长]
-    table.json("memo"); // JSON 类型 [作品全部track本地文件信息]
-
     table.integer("dl_count"); // INTEGER 类型 [售出数]
     table.integer("price"); // INTEGER 类型 [价格]
     table.integer("review_count"); // INTEGER 类型 [评论数量]
@@ -28,6 +24,11 @@ const createSchema = () => knex.schema
     table.float("rate_average_2dp"); // FLOAT 类型 [平均评价]
     table.text("rate_count_detail"); // TEXT 类型 [评价分布明细]
     table.text("rank"); // TEXT 类型 [历史销售业绩]
+
+    table.string("add_time"); // VARCHAR 类型 [文件夹添加时间 (YYYY-MM-DD HH:MM:SS)]
+    table.integer("duration"); // FLOAT 类型 [作品全部track时长]
+    table.json("memo"); // JSON 类型 [作品全部track本地文件信息]
+    table.boolean("lyric_status"); // BOOLEAN 类型
 
     table.primary("id");
 
@@ -97,7 +98,8 @@ const createSchema = () => knex.schema
           t_work.rate_count_detail,
           t_work.rank,
           t_work.add_time,
-          t_work.duration
+          t_work.duration,
+          t_work.lyric_status
         FROM t_work
         JOIN t_circle ON t_circle.id = t_work.circle_id
       ) AS baseQuery

@@ -560,12 +560,13 @@ const getWorkMemo = async (work_id) => {
   return JSON.parse(work.memo);
 };
 
-const setWorkMemo = async (work_id, workDuration, memo) =>
+const setWorkMemo = async (work_id, workDuration, memo, lyricStatus) =>
   knex("t_work")
     .where("id", "=", work_id)
     .update({
       duration: workDuration,
       memo: JSON.stringify(memo),
+      lyric_status: lyricStatus,
     });
 
 module.exports = {

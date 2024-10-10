@@ -48,22 +48,6 @@ async function getAudioFileDuration(filePath) {
 }
 
 /**
- * 是否包含字幕
- * @param {Number} id Work identifier. Currently, RJ/RE code. 
- * @param {String} dir Work directory (absolute).
- * @returns 
- */
-async function isContainLyric(id, dir) {
-  const files = await recursiveReaddir(dir);
-  const lyricFiles = files.filter((file) => {
-    const ext = path.extname(file).toLocaleLowerCase();
-    return supportedSubtitleExtList.includes(ext);
-  })
-  console.log(`-> [RJ${id}] 共找到字幕文件 ${lyricFiles.length} 个.`)
-  return lyricFiles.length > 0;
-}
-
-/**
  * Returns list of playable tracks in a given folder. Track is an object
  * containing 'title', 'subtitle' and 'hash'.
  * @param {String} id Work identifier. Currently, RJ/RE code.
@@ -99,12 +83,12 @@ const getTrackList = async (id, dir, readMemo = {}) => recursiveReaddir(dir)
       ext: file.ext,
     }));
 
-    const durationMemo = readMemo.duration || {};
+    const memo = readMemo || {};
 
     // Add 'audio' duration to each file
     sortedHashedFiles.map((file) => {
-      if (supportedMediaExtList.includes(file.ext) && durationMemo[file.shortFilePath] !== undefined) {
-        file.duration = durationMemo[file.shortFilePath];
+      if (supportedMediaExtList.includes(file.ext) && memo[file.shortFilePath] !== undefined) {
+        file.duration = memo[file.shortFilePath].duration;
 
         delete file.shortFilePath;
       }
@@ -322,7 +306,6 @@ module.exports = {
   getFolderList,
   deleteCoverImageFromDisk,
   saveCoverImageToDisk,
-  isContainLyric,
   datetimeOptions,
   supportedMediaExtList,
   supportedSubtitleExtList,

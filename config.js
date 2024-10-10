@@ -188,5 +188,5 @@ if (!fs.existsSync(configPath)) {
 }
 
 module.exports = {
-  setConfig, updateConfig, config, sharedConfigHandle, configFolderDir
+  setConfig, updateConfig, config, sharedConfigHandle, configFolderDir, configPath
 };

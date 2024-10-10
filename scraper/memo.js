@@ -3,6 +3,7 @@ const path = require("path");
 const recursiveReaddir = require("recursive-readdir");
 const { supportedMediaExtList, supportedSubtitleExtList, getAudioFileDuration } = require("../filesystem/utils");
 
+const trackFilterRegex = /(SE|se|射精音)(なし|無し|no)/;
 /**
  * 从文件系统，抓取单个作品本地文件的杂项信息
  * TODO: 文件hash
@@ -10,94 +11,77 @@ const { supportedMediaExtList, supportedSubtitleExtList, getAudioFileDuration } 
  * @param {string} dir 作品本地文件夹路径
  * @param {object} oldMemo 旧版本本地文件信息
  * @returns {
- * duration: {"relative/path/to/audio1.mp3": 334.23, ...},
- * isContainLyric: boolean,
- * mtime: {"relative/path/to/audio1.mp3": 1704972508000, ...}
+ *    "relative/path/to/audio1.mp3": {
+ *      duration: 334.23,
+ *      mtime: 1704972508000
+ *    },
+ *    ...
  * }
  */
-async function scrapeWorkMemo(work_id, dir, oldMemo) {
-  const files = await recursiveReaddir(dir);
-  // Filter out any files not matching these extensions
-  const oldMemoMtime = oldMemo.mtime || {};
-  const oldMemoDuration = oldMemo.duration || {};
-  const memo = { duration: {}, isContainLyric: false, mtime: {} };
-  let trackInfo = [];
-  let workDuration = 0.0;
+const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => recursiveReaddir(dir)
+  .then(async (files) => {
+    const memo = {};
+    // 统计作品总计播放时长
+    const trackDuration = [];
+    let workDuration = 0.0;
+    // 本地文件夹是否包含字幕文件
+    let lyricStatus = false;
 
-  await Promise.all(files
-    .filter((file) => {
-      const ext = path.extname(file).toLowerCase();
-      if (supportedSubtitleExtList.includes(ext)) {
-        memo.isContainLyric = true;
-      }
-      return supportedMediaExtList.includes(ext);
-    }) // filter
-    .map((file) => ({
-      fullPath: file,
-      shortPath: file.replace(path.join(dir, "/"), ""),
-    })) // map
-    .map(async (fileDict) => {
-      const fstat = fs.statSync(fileDict.fullPath);
-      const newMTime = Math.round(fstat.mtime.getTime());
-      const oldMTime = oldMemoMtime[fileDict.shortPath];
-      const oldDuration = oldMemoDuration[fileDict.shortPath];
-
-      if (
-        oldMTime === undefined || // 音频文件是新增的
-        oldDuration === undefined || // 此前没有更新过这个文件的duration
-        oldMTime !== newMTime // 或者音频文件的最后修改时间和之前的memo记录不一致，说明文件有修改
-      ) {
-        // 更新duration和mtime
-        memo.mtime[fileDict.shortPath] = newMTime;
-        const duration = await getAudioFileDuration(fileDict.fullPath);
-        if (!isNaN(duration) && typeof duration === "number") {
-          memo.duration[fileDict.shortPath] = duration;
+    await Promise.all(files
+      .filter((file) => {
+        const ext = path.extname(file).toLowerCase();
+        if (supportedSubtitleExtList.includes(ext)) {
+          lyricStatus = true;
         }
-        const message = `"${ fileDict.shortPath }" (${ duration }s), 上一次更改: ${fstat.mtime.toLocaleString()}`
-        console.log(`-> [RJ${work_id}] ${message}`);
-      } else {
-        // 使用老的文件信息
-        memo.mtime[fileDict.shortPath] = oldMTime;
-        memo.duration[fileDict.shortPath] = oldDuration;
+        return supportedMediaExtList.includes(ext);
+      }) // filter
+      .map(async (file) => {
+        const shortPath = file.replace(path.join(dir, "/"), "");
+        const track = path.dirname(shortPath).toLowerCase();
+        const ext = path.extname(shortPath).toLowerCase();
+        const title = path.basename(shortPath).toLowerCase().replace(ext, "");
+
+        const oldFileMemo = oldMemo[shortPath];
+        const fstat = fs.statSync(file);
+        const newMTime = Math.round(fstat.mtime.getTime());
+
+        // 判断文件是否为新增的
+        if (oldFileMemo === undefined || oldFileMemo.mtime !== newMTime) {
+          // 添加mtime
+          memo[shortPath] = { mtime: newMTime };
+          // 添加duration
+          const duration = await getAudioFileDuration(file);
+          if (!isNaN(duration) && typeof duration === "number") {
+            memo[shortPath].duration = duration;
+          }
+          // 输出文件信息
+          console.log(`-> [RJ${work_id}] "${shortPath}", (${duration}s), 最新修改: ${fstat.mtime.toLocaleString()}`);
+        } else {
+          // 使用老的文件信息
+          memo[shortPath] = { mtime: oldMemo[shortPath].mtime, duration: oldMemo[shortPath].duration };
+        }
+        // 存储不匹配 /(SE|se|射精音)(なし|無し|no)/ 字符串的文件夹及其所有文件播放时长信息
+        if (!trackFilterRegex.test(track)) {
+          trackDuration.push({ track: track, title: title, duration: memo[shortPath].duration });
+        }
+      }) // map get duration
+    ); // Promise.all
+
+    // 根据文件名进行去重，部分作品会同时使用.wav和.mp3格式
+    const uniqueTitle = new Map();
+
+    trackDuration.forEach(item => {
+      if (!uniqueTitle.has(item.title)) {
+        uniqueTitle.set(item.title, item);
+        workDuration += item.duration;
       }
-      // 统计全部音频中不重复的播放时长
-      const track = path.dirname(fileDict.shortPath);
-      const ext = path.extname(fileDict.shortPath);
-      const title = path.basename(fileDict.shortPath).replace(ext, "").replace(/[. ]/g, "").toLowerCase();
-      const trackRegex = /なし|no/;
-      const titleRegex = /seなし/;
-      if (!trackRegex.test(track) && !titleRegex.test(title)) {
-        trackInfo.push({ track: track, title: title, duration: memo.duration[fileDict.shortPath], ext: ext });
-      }
-    }) // map get duration
-  ); // Promise.all
+    });
+    // 四舍五入播放时长
+    workDuration = Math.round(workDuration);
 
-  // 根据标题、播放时长去重，计算作品播放时长
-  let uniqueTitle = trackInfo.reduce((accumulator, current) => {
-    let existing = accumulator.find(item => item.title === current.title);
-    if (!existing) {
-      accumulator.push(current);
-    }
-    return accumulator;
-  }, []);
+    return { workDuration, memo, lyricStatus };
 
-  let uniqueDuration = uniqueTitle.reduce((accumulator, current) => {
-    let existing = accumulator.find(item => item.duration === current.duration);
-    if (existing) {
-      if (existing.duration < current.duration) {
-        accumulator = accumulator.filter(item => item.duration !== current.duration); // 删除旧的记录
-        accumulator.push(current); // 添加新的记录
-      }
-    } else {
-      accumulator.push(current); // 如果没有相同的 'title'，直接添加
-    }
-    return accumulator;
-  }, []);
+  })
 
-  uniqueDuration.map((track) => { workDuration += track.duration });
-  workDuration = Math.round(workDuration);
-
-  return { workDuration, memo };
-}
 
 module.exports = { scrapeWorkMemo };
