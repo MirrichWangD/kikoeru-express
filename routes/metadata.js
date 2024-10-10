@@ -214,7 +214,7 @@ router.get('/search', async (req, res, next) => {
     res.send({
       works,
       page: currentPage,
-      pageSize: PAGE_SIZE,
+      pageSize: pageSize,
       totalCount: totalCount[0]["count"],
     });
   } catch (err) {
