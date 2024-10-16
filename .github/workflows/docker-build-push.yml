@@ -8,22 +8,29 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  DOCKERHUB_REPO: mirrichwangd/kikoeru
+
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - name: checkout code
+    - name: Checkout
       uses: actions/checkout@v4
 
     - name: Get package.json version
       id: get_version
       run: |
-          VERSION=$(jq -r '.version' package.json)
-          echo "Package Version: $VERSION"
-          echo "::set-output name=version::$VERSION"
+        VERSION=$(jq -r '.version' package.json)
+        echo "Package Version: $VERSION"
+        echo "::set-output name=version::$VERSION"
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: login to Docker Hub
       uses: docker/login-action@v2
@@ -31,22 +38,12 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build the Docker image
-      run: |
-        IMAGE_NAME="mirrichwangd/kikoeru:v${{ steps.get_version.outputs.version }}"
-        echo "Building image: $IMAGE_NAME"
-        docker build . -t $IMAGE_NAME
-    
-    - name: Tag the image as latest
-      run: |
-        IMAGE_NAME="mirrichwangd/kikoeru:v${{ steps.get_version.outputs.version }}"
-        echo "Tagging image as latest: mirrichwangd/kikoeru:latest"
-        docker tag $IMAGE_NAME mirrichwangd/kikoeru:latest
-
-    - name: Push the Docker images
-      run: |
-        IMAGE_NAME="mirrichwangd/kikoeru:v${{ steps.get_version.outputs.version }}"
-        echo "Pushing image: $IMAGE_NAME"
-        docker push $IMAGE_NAME
-        echo "Pushing image: mirrichwangd/kikoeru:latest"
-        docker push mirrichwangd/kikoeru:latest
+    - name: Build and push Docker image with Buildx
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.DOCKERHUB_REPO }}:v${{ steps.get_version.outputs.version }}
+          ${{ env.DOCKERHUB_REPO }}:latest
+        platforms: linux/amd64,linux/arm64
