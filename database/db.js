@@ -323,7 +323,6 @@ const getWorksByKeyWord = ({ keywords, username = "admin" } = {}) => {
         .where("id", "=", workid);
     }
 
-    console.log(keyword);
     const circleIdQuery = knex("t_circle").select("id").where("name", "like", `%${keyword}%`);
     const tagIdQuery = knex("t_tag").select("id").where("name", "like", `%${keyword}%`);
     const vaIdQuery = knex("t_va").select("id").where("name", "like", `%${keyword}%`);
