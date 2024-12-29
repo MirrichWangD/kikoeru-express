@@ -14,87 +14,78 @@ const knex = require("knex")(conn);
  * @param {Object} work Work object.
  */
 // Using trx as a query builder:
-const insertWorkMetadata = (work) => knex.transaction((trx) => trx.raw(
-  trx("t_circle")
-    .insert({ id: work.circle.id, name: work.circle.name })
-    .toString()
-    .replace("insert", "insert or ignore")
-)
-  .then(() => trx("t_work")
-    .insert({
-      id: work.id,
-      root_folder: work.rootFolderName,
-      dir: work.dir,
-      title: work.title,
-      circle_id: work.circle.id,
-      nsfw: work.nsfw,
-      release: work.release,
-      add_time: work.addTime,
+const insertWorkMetadata = async (work) => {
+  return knex.transaction(async (trx) => {
+    try {
+      // 插入 t_circle
+      await trx("t_circle")
+        .insert({ id: work.circle.id, name: work.circle.name })
+        .onConflict('id') // 使用 onConflict 代替 'insert or ignore'
+        .ignore();
 
-      dl_count: work.dl_count,
-      price: work.price,
-      review_count: work.review_count,
-      rate_count: work.rate_count,
-      rate_average_2dp: work.rate_average_2dp,
-      rate_count_detail: JSON.stringify(work.rate_count_detail),
-      rank: work.rank ? JSON.stringify(work.rank) : null,
-      duration: work.duration,
-    })
-  )
-  .then(() => {
-    // Now that work is in the database, insert relationships
-    const promises = [];
+      // 插入 t_work
+      await trx("t_work")
+        .insert({
+          id: work.id,
+          root_folder: work.rootFolderName,
+          dir: work.dir,
+          title: work.title,
+          circle_id: work.circle.id,
+          nsfw: work.nsfw,
+          release: work.release,
+          add_time: work.addTime,
+          dl_count: work.dl_count,
+          price: work.price,
+          review_count: work.review_count,
+          rate_count: work.rate_count,
+          rate_average_2dp: work.rate_average_2dp,
+          rate_count_detail: JSON.stringify(work.rate_count_detail),
+          rank: work.rank ? JSON.stringify(work.rank) : null,
+          duration: work.duration,
+        });
 
-    for (let i = 0; i < work.tags.length; i += 1) {
-      promises.push(
-        trx
-          .raw(
-            trx("t_tag")
-              .insert({
-                id: work.tags[i].id,
-                name: work.tags[i].name,
-              })
-              .toString()
-              .replace("insert", "insert or ignore")
-          )
-          .then(() =>
-            trx("r_tag_work").insert({
-              tag_id: work.tags[i].id,
-              work_id: work.id,
-            })
-          )
-      );
+      // 批量插入 tags
+      await trx("t_tag")
+        .insert(work.tags.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+        })))
+        .onConflict('id') // 使用 onConflict 代替 'insert or ignore'
+        .ignore();
+
+      // 插入 r_tag_work 关系
+      const tagRelations = work.tags.map(tag => ({
+        tag_id: tag.id,
+        work_id: work.id,
+      }));
+      await trx("r_tag_work").insert(tagRelations);
+
+      // 批量插入 vas
+      await trx("t_va")
+        .insert(work.vas.map(va => ({
+          id: va.id,
+          name: va.name,
+        })))
+        .onConflict('id') // 使用 onConflict 代替 'insert or ignore'
+        .ignore();
+
+      // 插入 r_va_work 关系
+      const vaRelations = work.vas.map(va => ({
+        va_id: va.id,
+        work_id: work.id,
+      }));
+      await trx("r_va_work").insert(vaRelations);
+
+      // 提交事务
+      await trx.commit();
+    } catch (error) {
+      // 如果发生错误，则回滚事务
+      await trx.rollback();
+      throw error;
     }
+  });
+};
 
-    for (let i = 0; i < work.vas.length; i += 1) {
-      promises.push(
-        trx
-          .raw(
-            trx("t_va")
-              .insert({
-                id: work.vas[i].id,
-                name: work.vas[i].name,
-              })
-              .toString()
-              .replace("insert", "insert or ignore")
-          )
-          .then(() =>
-            trx.raw(
-              trx("r_va_work")
-                .insert({
-                  va_id: work.vas[i].id,
-                  work_id: work.id,
-                })
-                .toString()
-                .replace("insert", "insert or ignore")
-            )
-          )
-      );
-    }
-
-    return Promise.all(promises).then(() => trx);
-  })
-);
 
 /**
  * 更新音声的动态元数据
@@ -322,7 +313,7 @@ const getWorksByKeyWord = ({ keywords, username = "admin" } = {}) => {
     .where('t_review.user_name', username).as('userrate')
   const intersectQueryList = [];
   for (let keyword of keywords) {
-    keyword = keyword.replace(/[$(circle)(va)(tag):]/g, "");
+    keyword = keyword.replace(/\b(circle|va|tag):/g, "");
     // 匹配是否搜索存在RJ号
     const workid = keyword.match(/((R|r)(J|j))?(\d+)/) ? keyword.match(/((R|r)(J|j))?(\d+)/)[4] : "";
     if (workid) {
@@ -332,6 +323,7 @@ const getWorksByKeyWord = ({ keywords, username = "admin" } = {}) => {
         .where("id", "=", workid);
     }
 
+    console.log(keyword);
     const circleIdQuery = knex("t_circle").select("id").where("name", "like", `%${keyword}%`);
     const tagIdQuery = knex("t_tag").select("id").where("name", "like", `%${keyword}%`);
     const vaIdQuery = knex("t_va").select("id").where("name", "like", `%${keyword}%`);

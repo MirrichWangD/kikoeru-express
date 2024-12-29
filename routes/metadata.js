@@ -101,29 +101,29 @@ router.get('/works',
           // 随机排序+分页 hack
           works = await query()
             .where("lyric_status", "=", lyricStatus)
-            .offset(offset).limit(pageSize)
-            .orderBy(db.knex.raw('id % ?', shuffleSeed));
+            .orderBy(db.knex.raw('id % ?', shuffleSeed))
+            .offset(offset).limit(pageSize);
         } else if (order === 'betterRandom') {
           // 随心听专用，不支持分页
-          works = await query().where("lyric_status", "=", lyricStatus).limit(1).orderBy(db.knex.raw('random()'));
+          works = await query().where("lyric_status", "=", lyricStatus).orderBy(db.knex.raw('random()')).limit(1);
         } else {
           works = await query()
             .where("lyric_status", "=", lyricStatus)
-            .offset(offset).limit(pageSize)
             .orderBy(order, sort).orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+            .offset(offset).limit(pageSize);
         }
       } else {
         totalCount = await query().count('id as count');
         if (order === 'random') {
           // 随机排序+分页 hack
-          works = await query().offset(offset).limit(pageSize).orderBy(db.knex.raw('id % ?', shuffleSeed));
+          works = await query().orderBy(db.knex.raw('id % ?', shuffleSeed)).offset(offset).limit(pageSize);
         } else if (order === 'betterRandom') {
           // 随心听专用，不支持分页
-          works = await query().limit(1).orderBy(db.knex.raw('random()'));
+          works = await query().orderBy(db.knex.raw('random()')).limit(1);
         } else {
           works = await query()
-            .offset(offset).limit(pageSize)
             .orderBy(order, sort).orderBy([{ column: 'release', order: 'desc' }, { column: 'id', order: 'desc' }])
+            .offset(offset).limit(pageSize)
         }
       }
 
