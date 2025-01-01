@@ -6,10 +6,7 @@ const { orderBy } = require("natural-orderby");
 const { joinFragments } = require("../routes/utils/url");
 const { config } = require("../config");
 
-const util = require("util");
-const execFile = util.promisify(require("child_process").execFile);
-
-const ffprobeStatic = require("ffprobe-static");
+const ffmpeg = require("fluent-ffmpeg");
 
 // 日期时间options
 const datetimeOptions = {
@@ -28,23 +25,16 @@ const supportedExtList = ["txt", "pdf"] + supportedImageExtList + supportedMedia
 
 
 async function getAudioFileDuration(filePath) {
-  try {
-    const ffprobePath = typeof process.pkg !== "undefined" ? "ffprobe" : ffprobeStatic.path;
-    const { stdout } = await execFile(ffprobePath, [
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      filePath,
-    ]);
-    const durationSecs = parseFloat(stdout);
-    return durationSecs;
-  } catch (err) {
-    console.error(`get duration failed, file = ${filePath}`, err);
-  }
-  return NaN;
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) {
+        console.error(`get duration failed, file = ${filePath}`, err);
+        return resolve(NaN);
+      }
+      const durationSecs = metadata.format.duration;
+      resolve(durationSecs);
+    });
+  });
 }
 
 /**
@@ -53,49 +43,48 @@ async function getAudioFileDuration(filePath) {
  * @param {String} id Work identifier. Currently, RJ/RE code.
  * @param {String} dir Work directory (absolute).
  */
-const getTrackList = async (id, dir, readMemo = {}) => recursiveReaddir(dir)
-  .then(async (files) => {
-    const filteredFiles = files.filter((file) => {
-      const ext = path.extname(file).toLowerCase();
+const getTrackList = async (id, dir, readMemo = {}) => {
+  const files = await recursiveReaddir(dir);
+  const filteredFiles = files.filter((file) => {
+    const ext = path.extname(file).toLowerCase();
 
-      return supportedExtList.includes(ext);
-    });
-
-    // Sort by folder and title
-    const sortedFiles = orderBy(filteredFiles.map((file) => {
-      const shortFilePath = file.replace(path.join(dir, "/"), "");
-      const dirName = path.dirname(shortFilePath);
-
-      return {
-        title: path.basename(file),
-        subtitle: dirName === "." ? null : dirName,
-        ext: path.extname(file),
-        shortFilePath,
-      };
-    }), [(v) => v.subtitle, (v) => v.title, (v) => v.ext]);
-
-    // Add hash to each file
-    const sortedHashedFiles = sortedFiles.map((file, index) => ({
-      title: file.title,
-      subtitle: file.subtitle,
-      hash: `${id}/${index}`,
-      shortFilePath: file.shortFilePath,
-      ext: file.ext,
-    }));
-
-    const memo = readMemo || {};
-
-    // Add 'audio' duration to each file
-    sortedHashedFiles.map((file) => {
-      if (supportedMediaExtList.includes(file.ext) && memo[file.shortFilePath] !== undefined) {
-        file.duration = memo[file.shortFilePath].duration;
-
-        delete file.shortFilePath;
-      }
-      return file;
-    });
-    return sortedHashedFiles;
+    return supportedExtList.includes(ext);
   });
+
+  // Sort by folder and title
+  const sortedFiles = orderBy(filteredFiles.map((file) => {
+    const shortFilePath = file.replace(path.join(dir, "/"), "");
+    const dirName = path.dirname(shortFilePath);
+
+    return {
+      title: path.basename(file),
+      subtitle: dirName === "." ? null : dirName,
+      ext: path.extname(file),
+      shortFilePath,
+    };
+  }), [(v) => v.subtitle, (v) => v.title, (v) => v.ext]);
+
+  // Add hash to each file
+  const sortedHashedFiles = sortedFiles.map((file, index) => ({
+    title: file.title,
+    subtitle: file.subtitle,
+    hash: `${id}/${index}`,
+    shortFilePath: file.shortFilePath,
+    ext: file.ext,
+  }));
+
+  const memo = readMemo || {};
+
+  // Add 'audio' duration to each file
+  sortedHashedFiles.forEach((file) => {
+    if (supportedMediaExtList.includes(file.ext) && memo[file.shortFilePath] !== undefined) {
+      file.duration = memo[file.shortFilePath].duration;
+      delete file.shortFilePath;
+    }
+  });
+
+  return sortedHashedFiles;
+};
 
 
 /**
@@ -109,25 +98,27 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
   // 插入文件夹
   tracks.forEach((track) => {
     let fatherFolder = tree;
-    const path = track.subtitle ? track.subtitle.split("\\") : [];
-    path.forEach((folderName) => {
-      const index = fatherFolder.findIndex((item) => item.type === "folder" && item.title === folderName);
-      if (index === -1) {
-        fatherFolder.push({
+    const trackPath = track.subtitle ? track.subtitle.split(path.sep) : [];
+
+    trackPath.forEach((folderName) => {
+      let folder = fatherFolder.find((item) => item.type === "folder" && item.title === folderName);
+      if (!folder) {
+        folder = {
           type: "folder",
           title: folderName,
           children: [],
-        });
+        };
+        fatherFolder.push(folder);
       }
-      fatherFolder = fatherFolder.find((item) => item.type === "folder" && item.title === folderName).children;
+      fatherFolder = folder.children;
     });
   });
 
   // 插入文件
   tracks.forEach((track) => {
     let fatherFolder = tree;
-    const paths = track.subtitle ? track.subtitle.split("\\") : [];
-    paths.forEach((folderName) => {
+    const trackPath = track.subtitle ? track.subtitle.split(path.sep) : [];
+    trackPath.forEach((folderName) => {
       fatherFolder = fatherFolder.find((item) => item.type === "folder" && item.title === folderName).children;
     });
 
