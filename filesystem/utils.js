@@ -1,41 +1,28 @@
-const fs = require("fs");
-const path = require("path");
-const recursiveReaddir = require("recursive-readdir");
-const { orderBy } = require("natural-orderby");
+const fs = require('fs');
+const path = require('path');
+const recursiveReaddir = require('recursive-readdir');
+const { orderBy } = require('natural-orderby');
 
-const { joinFragments } = require("../routes/utils/url");
-const { config } = require("../config");
-
-const ffmpeg = require("fluent-ffmpeg");
+const { joinFragments } = require('../routes/utils/url');
+const { config } = require('../config');
 
 // 日期时间options
 const datetimeOptions = {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
 };
 
 // 支持文件后缀类型
 // '.ass' only support show on file list, not for play lyric
-const supportedSubtitleExtList = [".lrc", ".srt", ".ass", ".vtt"];
-const supportedImageExtList = [".jpg", ".jpeg", ".png", ".webp"];
-const supportedMediaExtList = [".mp3", ".ogg", ".opus", ".wav", ".aac", ".flac", ".webm", ".mp4", ".m4a", ".mka"];
-const supportedExtList = ["txt", "pdf"] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
-
-
-async function getAudioFileDuration(filePath) {
-  return new Promise((resolve) => {
-    ffmpeg.ffprobe(filePath, (err, metadata) => {
-      if (err) {
-        console.error(`get duration failed, file = ${filePath}`, err);
-        return resolve(NaN);
-      }
-      const durationSecs = metadata.format.duration;
-      resolve(durationSecs);
-    });
-  });
-}
+const supportedSubtitleExtList = ['.lrc', '.srt', '.ass', '.vtt'];
+const supportedImageExtList = ['.jpg', '.jpeg', '.png', '.webp'];
+const supportedMediaExtList = ['.mp3', '.ogg', '.opus', '.wav', '.aac', '.flac', '.webm', '.mp4', '.m4a', '.mka'];
+const supportedExtList = ['txt', 'pdf'] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
 
 /**
  * Returns list of playable tracks in a given folder. Track is an object
@@ -45,24 +32,27 @@ async function getAudioFileDuration(filePath) {
  */
 const getTrackList = async (id, dir, readMemo = {}) => {
   const files = await recursiveReaddir(dir);
-  const filteredFiles = files.filter((file) => {
+  const filteredFiles = files.filter(file => {
     const ext = path.extname(file).toLowerCase();
 
     return supportedExtList.includes(ext);
   });
 
   // Sort by folder and title
-  const sortedFiles = orderBy(filteredFiles.map((file) => {
-    const shortFilePath = file.replace(path.join(dir, "/"), "");
-    const dirName = path.dirname(shortFilePath);
+  const sortedFiles = orderBy(
+    filteredFiles.map(file => {
+      const shortFilePath = file.replace(path.join(dir, '/'), '');
+      const dirName = path.dirname(shortFilePath);
 
-    return {
-      title: path.basename(file),
-      subtitle: dirName === "." ? null : dirName,
-      ext: path.extname(file),
-      shortFilePath,
-    };
-  }), [(v) => v.subtitle, (v) => v.title, (v) => v.ext]);
+      return {
+        title: path.basename(file),
+        subtitle: dirName === '.' ? null : dirName,
+        ext: path.extname(file),
+        shortFilePath
+      };
+    }),
+    [v => v.subtitle, v => v.title, v => v.ext]
+  );
 
   // Add hash to each file
   const sortedHashedFiles = sortedFiles.map((file, index) => ({
@@ -70,13 +60,13 @@ const getTrackList = async (id, dir, readMemo = {}) => {
     subtitle: file.subtitle,
     hash: `${id}/${index}`,
     shortFilePath: file.shortFilePath,
-    ext: file.ext,
+    ext: file.ext
   }));
 
   const memo = readMemo || {};
 
   // Add 'audio' duration to each file
-  sortedHashedFiles.forEach((file) => {
+  sortedHashedFiles.forEach(file => {
     if (supportedMediaExtList.includes(file.ext) && memo[file.shortFilePath] !== undefined) {
       file.duration = memo[file.shortFilePath].duration;
       delete file.shortFilePath;
@@ -85,7 +75,6 @@ const getTrackList = async (id, dir, readMemo = {}) => {
 
   return sortedHashedFiles;
 };
-
 
 /**
  * 转换成树状结构
@@ -96,17 +85,17 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
   const tree = [];
 
   // 插入文件夹
-  tracks.forEach((track) => {
+  tracks.forEach(track => {
     let fatherFolder = tree;
     const trackPath = track.subtitle ? track.subtitle.split(path.sep) : [];
 
-    trackPath.forEach((folderName) => {
-      let folder = fatherFolder.find((item) => item.type === "folder" && item.title === folderName);
+    trackPath.forEach(folderName => {
+      let folder = fatherFolder.find(item => item.type === 'folder' && item.title === folderName);
       if (!folder) {
         folder = {
-          type: "folder",
+          type: 'folder',
           title: folderName,
-          children: [],
+          children: []
         };
         fatherFolder.push(folder);
       }
@@ -115,11 +104,11 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
   });
 
   // 插入文件
-  tracks.forEach((track) => {
+  tracks.forEach(track => {
     let fatherFolder = tree;
     const trackPath = track.subtitle ? track.subtitle.split(path.sep) : [];
-    trackPath.forEach((folderName) => {
-      fatherFolder = fatherFolder.find((item) => item.type === "folder" && item.title === folderName).children;
+    trackPath.forEach(folderName => {
+      fatherFolder = fatherFolder.find(item => item.type === 'folder' && item.title === folderName).children;
     });
 
     // Path controlled by config.offloadMedia, config.offloadStreamPath and config.offloadDownloadPath
@@ -135,65 +124,65 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
       config.offloadStreamPath,
       rootFolder.name,
       workDir,
-      track.subtitle || "",
+      track.subtitle || '',
       track.title
     );
     let offloadDownloadUrl = joinFragments(
       config.offloadDownloadPath,
       rootFolder.name,
       workDir,
-      track.subtitle || "",
+      track.subtitle || '',
       track.title
     );
-    if (process.platform === "win32") {
-      offloadStreamUrl = offloadStreamUrl.replace(/\\/g, "/");
-      offloadDownloadUrl = offloadDownloadUrl.replace(/\\/g, "/");
+    if (process.platform === 'win32') {
+      offloadStreamUrl = offloadStreamUrl.replace(/\\/g, '/');
+      offloadDownloadUrl = offloadDownloadUrl.replace(/\\/g, '/');
     }
 
-    const textBaseUrl = "/api/media/stream/";
-    const mediaStreamBaseUrl = "/api/media/stream/";
-    const mediaDownloadBaseUrl = "/api/media/download/";
+    const textBaseUrl = '/api/media/stream/';
+    const mediaStreamBaseUrl = '/api/media/stream/';
+    const mediaDownloadBaseUrl = '/api/media/download/';
     const textStreamBaseUrl = textBaseUrl + track.hash; // Handle charset detection internally with jschardet
     const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
     const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.hash;
     const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
 
-    if ((["txt"] + supportedSubtitleExtList).includes(track.ext)) {
+    if ((['txt'] + supportedSubtitleExtList).includes(track.ext)) {
       fatherFolder.push({
-        type: "text",
+        type: 'text',
         hash: track.hash,
         title: track.title,
         workTitle,
         mediaStreamUrl: textStreamBaseUrl,
-        mediaDownloadUrl: textDownloadBaseUrl,
+        mediaDownloadUrl: textDownloadBaseUrl
       });
     } else if (supportedImageExtList.includes(track.ext)) {
       fatherFolder.push({
-        type: "image",
+        type: 'image',
         hash: track.hash,
         title: track.title,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl,
+        mediaDownloadUrl
       });
-    } else if (track.ext === ".pdf") {
+    } else if (track.ext === '.pdf') {
       fatherFolder.push({
-        type: "other",
+        type: 'other',
         hash: track.hash,
         title: track.title,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl,
+        mediaDownloadUrl
       });
     } else {
       fatherFolder.push({
-        type: "audio",
+        type: 'audio',
         hash: track.hash,
         title: track.title,
         duration: track.duration,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl,
+        mediaDownloadUrl
       });
     }
   });
@@ -206,7 +195,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
  * 音声文件夹对象 { relativePath: '相对路径', rootFolderName: '根文件夹别名', id: '音声ID' }
  * @param {Object} rootFolder 根文件夹对象 { name: '别名', path: '绝对路径' }
  */
-async function* getFolderList(rootFolder, current = "", depth = 0, callback = function addMainLog() { }) {
+async function* getFolderList(rootFolder, current = '', depth = 0, callback = function addMainLog() {}) {
   // 异步生成器函数 async function*() {}
   // 浅层遍历
   const folders = await fs.promises.readdir(path.join(rootFolder.path, current));
@@ -216,7 +205,7 @@ async function* getFolderList(rootFolder, current = "", depth = 0, callback = fu
     const relativePath = path.join(current, folder);
     const folderInfo = fs.statSync(absolutePath);
     let addTime = folderInfo.birthtime || folderInfo.mtime;
-    addTime = addTime.toLocaleString({}, datetimeOptions).replace(/\//g, "-");
+    addTime = addTime.toLocaleString({}, datetimeOptions).replace(/\//g, '-');
 
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -230,7 +219,7 @@ async function* getFolderList(rootFolder, current = "", depth = 0, callback = fu
             relativePath,
             rootFolderName: rootFolder.name,
             addTime: addTime,
-            id: folder.match(/RJ(\d+)/)[1],
+            id: folder.match(/RJ(\d+)/)[1]
           };
         } else if (depth + 1 < config.scannerMaxRecursionDepth) {
           // 若文件夹名称中不含有RJ号，就进入该文件夹内部
@@ -239,12 +228,12 @@ async function* getFolderList(rootFolder, current = "", depth = 0, callback = fu
         }
       }
     } catch (err) {
-      if (err.code === "EPERM") {
-        if (err.path && !err.path.endsWith("System Volume Information")) {
-          console.log(" ! 无法访问", err.path);
+      if (err.code === 'EPERM') {
+        if (err.path && !err.path.endsWith('System Volume Information')) {
+          console.log(' ! 无法访问', err.path);
           callback({
-            level: "info",
-            message: ` ! 无法访问 ${err.path}`,
+            level: 'info',
+            message: ` ! 无法访问 ${err.path}`
           });
         }
       } else {
@@ -258,10 +247,10 @@ async function* getFolderList(rootFolder, current = "", depth = 0, callback = fu
  * Deletes a work's cover image from disk.
  * @param {String} rjcode Work RJ code (only the 6 digits, zero-padded).
  */
-const deleteCoverImageFromDisk = (rjcode) =>
+const deleteCoverImageFromDisk = rjcode =>
   new Promise((resolve, reject) => {
-    const types = ["main", "sam", "240x240", "360x360"];
-    types.forEach((type) => {
+    const types = ['main', 'sam', '240x240', '360x360'];
+    types.forEach(type => {
       try {
         fs.unlinkSync(path.join(config.coverFolderDir, `RJ${rjcode}_img_${type}.jpg`));
       } catch (err) {
@@ -285,7 +274,7 @@ const saveCoverImageToDisk = (stream, rjcode, type) =>
       stream.pipe(
         fs
           .createWriteStream(path.join(config.coverFolderDir, `RJ${rjcode}_img_${type}.jpg`))
-          .on("close", () => resolve())
+          .on('close', () => resolve())
       );
     } catch (err) {
       reject(err);
@@ -294,7 +283,6 @@ const saveCoverImageToDisk = (stream, rjcode, type) =>
 
 module.exports = {
   getTrackList,
-  getAudioFileDuration,
   toTree,
   getFolderList,
   deleteCoverImageFromDisk,
@@ -303,5 +291,5 @@ module.exports = {
   supportedMediaExtList,
   supportedSubtitleExtList,
   supportedImageExtList,
-  supportedExtList,
+  supportedExtList
 };

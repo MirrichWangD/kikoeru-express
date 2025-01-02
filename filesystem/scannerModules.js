@@ -660,7 +660,7 @@ async function scanWorkFile(work) {
 const scanWorkFileLimited = work => limitP.call(scanWorkFile, work);
 async function scanWorkFiles(query) {
   return query.then(async works => {
-    logger.main.info(`共 ${works.length} 个音色. 开始扫描本地文件`);
+    logger.main.info(`共 ${works.length} 个音色作品. 开始扫描本地文件`);
 
     const counts = { updated: 0, skipped: 0, failed: 0 };
 
