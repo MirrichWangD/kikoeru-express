@@ -1,20 +1,13 @@
-# This dockerfile generates a single-container application
-# It copies build artifacts the from front-end image
-# If you want to separate the front-end from the back-end, it should work as well
-
-FROM node:14-alpine as build-dep
+FROM node:18-alpine as build-dep
 
 # Create app directory
 WORKDIR /usr/src/kikoeru
 
 # Install dependencies
-RUN apk add --update --no-cache python3 make gcc g++ 
-
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
 COPY package*.json ./
-RUN npm ci --only=production
+
+RUN apk add --no-cache python3 make gcc g++ \
+    && npm ci --only=production
 
 # Build SPA and PWA
 FROM node:14 as build-frontend
@@ -29,9 +22,12 @@ RUN npm ci
 RUN quasar build && quasar build -m pwa
 
 # Final stage
-FROM node:14-alpine
+FROM node:18-alpine
 ENV IS_DOCKER=true
 WORKDIR /usr/src/kikoeru
+
+# Install ffmpeg and tini
+RUN apk add --no-cache ffmpeg tini
 
 # Copy build artifacts
 COPY --from=build-dep /usr/src/kikoeru /usr/src/kikoeru
@@ -41,8 +37,6 @@ COPY --from=build-frontend /frontend/dist/${FRONTEND_TYPE} /usr/src/kikoeru/dist
 # Bundle app source
 COPY . .
 
-# Tini
-RUN apk add --no-cache tini
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # 持久化
