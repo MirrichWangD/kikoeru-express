@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const jschardet = require('jschardet');
 const recursiveReaddir = require("recursive-readdir");
-const { getTrackList, supportedSubtitleExtList } = require('../filesystem/utils');
+const { getTrackList, supportedTextExtList } = require('../filesystem/utils');
 const { joinFragments } = require('./utils/url')
 const { isValidRequest } = require('./utils/validate')
 
@@ -31,7 +31,7 @@ router.get('/stream/:id/:index',
 
               const fileName = path.join(rootFolder.path, work.dir, track.subtitle || '', track.title);
               const extName = path.extname(fileName);
-              if (extName === '.txt' || extName === '.lrc') {
+              if (supportedTextExtList.includes(extName)) {
                 const fileBuffer = fs.readFileSync(fileName);
                 const charsetMatch = jschardet.detect(fileBuffer).encoding;
                 if (charsetMatch) {

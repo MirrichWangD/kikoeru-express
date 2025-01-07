@@ -19,10 +19,10 @@ const datetimeOptions = {
 
 // 支持文件后缀类型
 // '.ass' only support show on file list, not for play lyric
-const supportedSubtitleExtList = ['.lrc', '.srt', '.ass', '.vtt'];
+const supportedTextExtList = ['.txt', '.lrc', '.srt', '.ass', '.vtt'];
 const supportedImageExtList = ['.jpg', '.jpeg', '.png', '.webp'];
 const supportedMediaExtList = ['.mp3', '.ogg', '.opus', '.wav', '.aac', '.flac', '.webm', '.mp4', '.m4a', '.mka'];
-const supportedExtList = ['txt', 'pdf'] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
+const supportedExtList = ['.pdf'] + supportedImageExtList + supportedMediaExtList + supportedTextExtList;
 
 /**
  * Returns list of playable tracks in a given folder. Track is an object
@@ -147,7 +147,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
     const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.hash;
     const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
 
-    if ((['txt'] + supportedSubtitleExtList).includes(track.ext)) {
+    if (supportedTextExtList.includes(track.ext)) {
       fatherFolder.push({
         type: 'text',
         hash: track.hash,
@@ -289,7 +289,7 @@ module.exports = {
   saveCoverImageToDisk,
   datetimeOptions,
   supportedMediaExtList,
-  supportedSubtitleExtList,
+  supportedTextExtList,
   supportedImageExtList,
   supportedExtList
 };
