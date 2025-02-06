@@ -10,7 +10,7 @@ const ffprobeStatic = require('ffprobe-static');
 const ffmpeg = require('fluent-ffmpeg');
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
-const { supportedMediaExtList, supportedTextExtList } = require('../filesystem/utils');
+const { supportedMediaExtList, supportedSubtitleExtList } = require('../filesystem/utils');
 
 const trackFilterRegex = /(SE|se|射精音)(なし|無し|no)/;
 
@@ -77,7 +77,7 @@ const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => {
     const fileProcessingPromises = files
       .filter(file => {
         const ext = path.extname(file).toLowerCase();
-        if (supportedTextExtList.includes(ext)) {
+        if (supportedSubtitleExtList.includes(ext)) {
           lyricStatus = true;
         }
         return supportedMediaExtList.includes(ext);

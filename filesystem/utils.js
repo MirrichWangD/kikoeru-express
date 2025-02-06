@@ -19,10 +19,10 @@ const datetimeOptions = {
 
 // 支持文件后缀类型
 // '.ass' only support show on file list, not for play lyric
-const supportedTextExtList = ['.txt', '.lrc', '.srt', '.ass', '.vtt'];
+const supportedSubtitleExtList = ['.lrc', '.srt', '.ass', '.vtt'];
 const supportedImageExtList = ['.jpg', '.jpeg', '.png', '.webp'];
 const supportedMediaExtList = ['.mp3', '.ogg', '.opus', '.wav', '.aac', '.flac', '.webm', '.mp4', '.m4a', '.mka'];
-const supportedExtList = ['.pdf'] + supportedImageExtList + supportedMediaExtList + supportedTextExtList;
+const supportedExtList = ['.txt', '.pdf'] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
 
 /**
  * Returns list of playable tracks in a given folder. Track is an object
@@ -59,6 +59,7 @@ const getTrackList = async (id, dir, readMemo = {}) => {
     title: file.title,
     subtitle: file.subtitle,
     hash: `${id}/${index}`,
+    workFilePath: `RJ${id}/${file.shortFilePath}`,
     shortFilePath: file.shortFilePath,
     ext: file.ext
   }));
@@ -69,7 +70,6 @@ const getTrackList = async (id, dir, readMemo = {}) => {
   sortedHashedFiles.forEach(file => {
     if (supportedMediaExtList.includes(file.ext) && memo[file.shortFilePath] !== undefined) {
       file.duration = memo[file.shortFilePath].duration;
-      delete file.shortFilePath;
     }
   });
 
@@ -142,12 +142,12 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
     const textBaseUrl = '/api/media/stream/';
     const mediaStreamBaseUrl = '/api/media/stream/';
     const mediaDownloadBaseUrl = '/api/media/download/';
-    const textStreamBaseUrl = textBaseUrl + track.hash; // Handle charset detection internally with jschardet
-    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
-    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.hash;
-    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
+    const textStreamBaseUrl = textBaseUrl + track.workFilePath; // Handle charset detection internally with jschardet
+    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.workFilePath;
+    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.workFilePath;
+    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.workFilePath;
 
-    if (supportedTextExtList.includes(track.ext)) {
+    if ((supportedSubtitleExtList + ['.txt']).includes(track.ext)) {
       fatherFolder.push({
         type: 'text',
         hash: track.hash,
@@ -289,7 +289,7 @@ module.exports = {
   saveCoverImageToDisk,
   datetimeOptions,
   supportedMediaExtList,
-  supportedTextExtList,
+  supportedSubtitleExtList,
   supportedImageExtList,
   supportedExtList
 };

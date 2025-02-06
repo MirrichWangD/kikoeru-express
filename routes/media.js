@@ -7,14 +7,14 @@ const fs = require('fs');
 const path = require('path');
 const jschardet = require('jschardet');
 const recursiveReaddir = require("recursive-readdir");
-const { getTrackList, supportedTextExtList } = require('../filesystem/utils');
+const { getTrackList, supportedSubtitleExtList } = require('../filesystem/utils');
 const { joinFragments } = require('./utils/url')
 const { isValidRequest } = require('./utils/validate')
 
 // GET (stream) a specific track from work folder
-router.get('/stream/:id/:index',
+router.get('/stream/RJ:id/:shortFilePath([\\s\\S]*)',
   param('id').isInt(),
-  param('index').isInt(),
+  param('shortFilePath').isString(),
   (req, res, next) => {
     if (!isValidRequest(req, res)) return;
 
@@ -27,11 +27,11 @@ router.get('/stream/:id/:index',
         if (rootFolder) {
           getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
             .then((tracks) => {
-              const track = tracks[req.params.index];
+              const track = tracks.find(track => track.shortFilePath === req.params.shortFilePath);
 
               const fileName = path.join(rootFolder.path, work.dir, track.subtitle || '', track.title);
               const extName = path.extname(fileName);
-              if (supportedTextExtList.includes(extName)) {
+              if ((supportedSubtitleExtList + ['.txt']).includes(extName)) {
                 const fileBuffer = fs.readFileSync(fileName);
                 const charsetMatch = jschardet.detect(fileBuffer).encoding;
                 if (charsetMatch) {
@@ -70,9 +70,9 @@ router.get('/stream/:id/:index',
       .catch(err => next(err));
   });
 
-router.get('/download/:id/:index',
+router.get('/download/RJ:id/:shortFilePath([\\s\\S]*)',
   param('id').isInt(),
-  param('index').isInt(),
+  param('shortFilePath').isString(),
   (req, res, next) => {
     if (!isValidRequest(req, res)) return;
 
@@ -85,7 +85,7 @@ router.get('/download/:id/:index',
         if (rootFolder) {
           getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
             .then((tracks) => {
-              const track = tracks[req.params.index];
+              const track = tracks.find(track => track.shortFilePath === req.params.shortFilePath);
 
               // Offload from express, 302 redirect to a virtual directory in a reverse proxy like Nginx
               if (config.offloadMedia) {
