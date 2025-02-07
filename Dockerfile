@@ -34,7 +34,7 @@ COPY --from=build-frontend /frontend/dist/${FRONTEND_TYPE} /usr/src/kikoeru/dist
 # Bundle app source
 COPY . .
 
-# Install ffmpeg and tini
+# Install tini
 RUN apk add --no-cache tini
 
 ENTRYPOINT ["/sbin/tini", "--"]
