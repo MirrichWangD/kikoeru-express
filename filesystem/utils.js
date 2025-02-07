@@ -6,17 +6,6 @@ const { orderBy } = require('natural-orderby');
 const { joinFragments } = require('../routes/utils/url');
 const { config } = require('../config');
 
-// 日期时间options
-const datetimeOptions = {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-};
-
 // 支持文件后缀类型
 // '.ass' only support show on file list, not for play lyric
 const supportedSubtitleExtList = ['.lrc', '.srt', '.ass', '.vtt'];
@@ -190,6 +179,19 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
   return tree;
 };
 
+const formatDatetime = date => {
+  // 获取年月日时分秒
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从 0 开始，需要 +1
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  // 格式化输出
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 /**
  * 返回一个成员为指定根文件夹下所有包含 RJ 号的音声文件夹对象的数组，
  * 音声文件夹对象 { relativePath: '相对路径', rootFolderName: '根文件夹别名', id: '音声ID' }
@@ -204,8 +206,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
     const absolutePath = path.resolve(rootFolder.path, current, folder);
     const relativePath = path.join(current, folder);
     const folderInfo = fs.statSync(absolutePath);
-    let addTime = folderInfo.birthtime || folderInfo.mtime;
-    addTime = addTime.toLocaleString({}, datetimeOptions).replace(/\//g, '-');
+    const addTime = formatDatetime((folderInfo.birthtime.getTime() ? folderInfo.birthtime : folderInfo.mtime));
 
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -287,7 +288,6 @@ module.exports = {
   getFolderList,
   deleteCoverImageFromDisk,
   saveCoverImageToDisk,
-  datetimeOptions,
   supportedMediaExtList,
   supportedSubtitleExtList,
   supportedImageExtList,

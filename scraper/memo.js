@@ -12,7 +12,7 @@ ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 const { supportedMediaExtList, supportedSubtitleExtList } = require('../filesystem/utils');
 
-const trackFilterRegex = /(なし|無し|no|No|NO)/;
+const filterRegex = /(なし|無し|no|体験|反転)/;
 
 // 通用的获取文件时长函数
 async function getFileDuration(filePath) {
@@ -84,7 +84,6 @@ const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => {
       })
       .map(async file => {
         const shortPath = file.replace(path.join(dir, '/'), '');
-        const track = path.dirname(shortPath).toLowerCase();
         const ext = path.extname(shortPath).toLowerCase();
         const title = path.basename(shortPath).toLowerCase().replace(ext, '');
 
@@ -103,15 +102,15 @@ const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => {
           memo[shortPath] = { mtime: oldFileMemo.mtime, duration: oldFileMemo.duration };
         }
 
-        if (!trackFilterRegex.test(track)) {
-          trackDuration.push({ track, title, duration: memo[shortPath].duration });
+        if (!filterRegex.test(shortPath.toLowerCase())) {
+          trackDuration.push({ title, duration: memo[shortPath].duration });
         }
       });
 
     // 使用 Promise.all 并行处理所有文件
     await Promise.all(fileProcessingPromises);
 
-    // 去重并计算工作时长
+    // 去重并计算作品时长
     const uniqueTitle = new Map();
     trackDuration.forEach(item => {
       if (!uniqueTitle.has(item.title)) {
@@ -119,8 +118,6 @@ const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => {
         workDuration += item.duration;
       }
     });
-
-    // 四舍五入工作时长
     workDuration = Math.round(workDuration);
 
     return { workDuration, memo, lyricStatus };

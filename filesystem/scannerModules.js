@@ -651,7 +651,7 @@ async function scanWorkFile(work) {
   if (!rootFolder) return 'skipped';
 
   const absoluteWorkDir = path.join(rootFolder.path, work.dir);
-  const localMemo = JSON.parse(work.memo) || {};
+  const localMemo = work.memo ? JSON.parse(work.memo) : {};
 
   return getWorkMemo(work.id, absoluteWorkDir, localMemo).then(result => {
     return result.replace('added', 'updated');
