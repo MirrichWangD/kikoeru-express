@@ -12,7 +12,7 @@ ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 const { supportedMediaExtList, supportedSubtitleExtList } = require('../filesystem/utils');
 
-const trackFilterRegex = /(SE|se|射精音)(なし|無し|no)/;
+const trackFilterRegex = /(なし|無し|no|No|NO)/;
 
 // 通用的获取文件时长函数
 async function getFileDuration(filePath) {
@@ -26,7 +26,7 @@ async function getFileDuration(filePath) {
         'format=duration',
         '-of',
         'default=noprint_wrappers=1:nokey=1',
-        filePath
+        filePath,
       ]);
       const duration = parseFloat(stdout.trim());
       if (isNaN(duration)) {

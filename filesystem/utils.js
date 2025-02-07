@@ -14,7 +14,7 @@ const datetimeOptions = {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
-  hour12: false
+  hour12: false,
 };
 
 // 支持文件后缀类型
@@ -48,7 +48,7 @@ const getTrackList = async (id, dir, readMemo = {}) => {
         title: path.basename(file),
         subtitle: dirName === '.' ? null : dirName,
         ext: path.extname(file),
-        shortFilePath
+        shortFilePath,
       };
     }),
     [v => v.subtitle, v => v.title, v => v.ext]
@@ -61,7 +61,7 @@ const getTrackList = async (id, dir, readMemo = {}) => {
     hash: `${id}/${index}`,
     workFilePath: `RJ${id}/${file.shortFilePath}`,
     shortFilePath: file.shortFilePath,
-    ext: file.ext
+    ext: file.ext,
   }));
 
   const memo = readMemo || {};
@@ -95,7 +95,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         folder = {
           type: 'folder',
           title: folderName,
-          children: []
+          children: [],
         };
         fatherFolder.push(folder);
       }
@@ -154,7 +154,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         title: track.title,
         workTitle,
         mediaStreamUrl: textStreamBaseUrl,
-        mediaDownloadUrl: textDownloadBaseUrl
+        mediaDownloadUrl: textDownloadBaseUrl,
       });
     } else if (supportedImageExtList.includes(track.ext)) {
       fatherFolder.push({
@@ -163,7 +163,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         title: track.title,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl
+        mediaDownloadUrl,
       });
     } else if (track.ext === '.pdf') {
       fatherFolder.push({
@@ -172,7 +172,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         title: track.title,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl
+        mediaDownloadUrl,
       });
     } else {
       fatherFolder.push({
@@ -182,7 +182,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         duration: track.duration,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl
+        mediaDownloadUrl,
       });
     }
   });
@@ -219,7 +219,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
             relativePath,
             rootFolderName: rootFolder.name,
             addTime: addTime,
-            id: folder.match(/RJ(\d+)/)[1]
+            id: folder.match(/RJ(\d+)/)[1],
           };
         } else if (depth + 1 < config.scannerMaxRecursionDepth) {
           // 若文件夹名称中不含有RJ号，就进入该文件夹内部
@@ -233,7 +233,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
           console.log(' ! 无法访问', err.path);
           callback({
             level: 'info',
-            message: ` ! 无法访问 ${err.path}`
+            message: ` ! 无法访问 ${err.path}`,
           });
         }
       } else {
@@ -291,5 +291,5 @@ module.exports = {
   supportedMediaExtList,
   supportedSubtitleExtList,
   supportedImageExtList,
-  supportedExtList
+  supportedExtList,
 };

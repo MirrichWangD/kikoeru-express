@@ -26,9 +26,6 @@ FROM node:18-alpine
 ENV IS_DOCKER=true
 WORKDIR /usr/src/kikoeru
 
-# Install ffmpeg and tini
-RUN apk add --no-cache ffmpeg tini
-
 # Copy build artifacts
 COPY --from=build-dep /usr/src/kikoeru /usr/src/kikoeru
 ARG FRONTEND_TYPE="pwa"
