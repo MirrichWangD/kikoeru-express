@@ -48,7 +48,7 @@ const getTrackList = async (id, dir, readMemo = {}) => {
     title: file.title,
     subtitle: file.subtitle,
     hash: `${id}/${index}`,
-    workFilePath: `RJ${id}/${file.shortFilePath}`,
+    urlFilePath: path.join(`RJ${id}`, file.shortFilePath),
     shortFilePath: file.shortFilePath,
     ext: file.ext,
   }));
@@ -131,10 +131,10 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
     const textBaseUrl = '/api/media/stream/';
     const mediaStreamBaseUrl = '/api/media/stream/';
     const mediaDownloadBaseUrl = '/api/media/download/';
-    const textStreamBaseUrl = textBaseUrl + track.workFilePath; // Handle charset detection internally with jschardet
-    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.workFilePath;
-    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.workFilePath;
-    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.workFilePath;
+    const textStreamBaseUrl = textBaseUrl + track.urlFilePath; // Handle charset detection internally with jschardet
+    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.urlFilePath;
+    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.urlFilePath;
+    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.urlFilePath;
 
     if ((supportedSubtitleExtList + ['.txt']).includes(track.ext)) {
       fatherFolder.push({

@@ -11,7 +11,7 @@ const { joinFragments } = require('./utils/url');
 const { isValidRequest } = require('./utils/validate');
 
 // GET (stream) a specific track from work folder
-router.get('/stream/RJ:id/:shortFilePath([\\s\\S]*)', param('id').isInt(), (req, res, next) => {
+router.get('/stream/RJ:id/:urlFilePath([\\s\\S]*)', param('id').isInt(), (req, res, next) => {
   if (!isValidRequest(req, res)) return;
 
   db.knex('t_work')
@@ -23,7 +23,8 @@ router.get('/stream/RJ:id/:shortFilePath([\\s\\S]*)', param('id').isInt(), (req,
       if (rootFolder) {
         getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
           .then(tracks => {
-            const track = tracks.find(track => track.shortFilePath === req.params.shortFilePath);
+            const urlFilePath = path.join(`RJ${req.params.id}`, req.params.urlFilePath);
+            const track = tracks.find(track => track.urlFilePath === urlFilePath);
 
             const fileName = path.join(rootFolder.path, work.dir, track.subtitle || '', track.title);
             const extName = path.extname(fileName);
