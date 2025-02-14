@@ -36,7 +36,7 @@ const getTrackList = async (id, dir, readMemo = {}) => {
       return {
         title: path.basename(file),
         subtitle: dirName === '.' ? null : dirName,
-        ext: path.extname(file),
+        ext: path.extname(file).toLowerCase(),
         shortFilePath,
       };
     }),
