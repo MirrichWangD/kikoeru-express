@@ -11,7 +11,7 @@ const { joinFragments } = require('./utils/url');
 const { isValidRequest } = require('./utils/validate');
 
 // GET (stream) a specific track from work folder
-router.get('/stream/RJ:id/:urlFilePath([\\s\\S]*)', param('id').isInt(), (req, res, next) => {
+router.get('/stream/RJ:id/:trackFile([\\s\\S]*)', param('id').isInt(), (req, res, next) => {
   if (!isValidRequest(req, res)) return;
 
   db.knex('t_work')
@@ -23,8 +23,7 @@ router.get('/stream/RJ:id/:urlFilePath([\\s\\S]*)', param('id').isInt(), (req, r
       if (rootFolder) {
         getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
           .then(tracks => {
-            const urlFilePath = path.join(`RJ${req.params.id}`, req.params.urlFilePath);
-            const track = tracks.find(track => track.urlFilePath === urlFilePath);
+            const track = tracks.find(track => track.mediaPath === `RJ${req.params.id}/${req.params.trackFile}`);
 
             const fileName = path.join(rootFolder.path, work.dir, track.subtitle || '', track.title);
             const extName = path.extname(fileName);
@@ -67,50 +66,45 @@ router.get('/stream/RJ:id/:urlFilePath([\\s\\S]*)', param('id').isInt(), (req, r
     .catch(err => next(err));
 });
 
-router.get(
-  '/download/RJ:id/:shortFilePath([\\s\\S]*)',
-  param('id').isInt(),
-  param('shortFilePath').isString(),
-  (req, res, next) => {
-    if (!isValidRequest(req, res)) return;
+router.get('/download/RJ:id/:trackFile([\\s\\S]*)', param('id').isInt(), (req, res, next) => {
+  if (!isValidRequest(req, res)) return;
 
-    db.knex('t_work')
-      .select('root_folder', 'dir')
-      .where('id', '=', req.params.id)
-      .first()
-      .then(work => {
-        const rootFolder = config.rootFolders.find(rootFolder => rootFolder.name === work.root_folder);
-        if (rootFolder) {
-          getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
-            .then(tracks => {
-              const track = tracks.find(track => track.shortFilePath === req.params.shortFilePath);
+  db.knex('t_work')
+    .select('root_folder', 'dir')
+    .where('id', '=', req.params.id)
+    .first()
+    .then(work => {
+      const rootFolder = config.rootFolders.find(rootFolder => rootFolder.name === work.root_folder);
+      if (rootFolder) {
+        getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
+          .then(tracks => {
+            const track = tracks.find(track => track.mediaPath === `RJ${req.params.id}/${req.params.trackFile}`);
 
-              // Offload from express, 302 redirect to a virtual directory in a reverse proxy like Nginx
-              if (config.offloadMedia) {
-                // Path controlled by config.offloadMedia and config.offloadDownloadPath
-                // By default: /media/download/VoiceWork/RJ123456/subdirs/track.mp3
-                // If the folder is deeper: /media/download/VoiceWork/second/RJ123456/subdirs/track.mp3
-                const baseUrl = config.offloadDownloadPath;
-                let offloadUrl = joinFragments(baseUrl, rootFolder.name, work.dir, track.subtitle || '', track.title);
-                if (process.platform === 'win32') {
-                  offloadUrl = offloadUrl.replace(/\\/g, '/');
-                }
-
-                // Note: you should set 'Content-Disposition: attachment' header in your reverse proxy for the download virtual directory
-                // By default the directory is /media/download
-                res.redirect(offloadUrl);
-              } else {
-                // By default, serve file through express
-                res.download(path.join(rootFolder.path, work.dir, track.subtitle || '', track.title));
+            // Offload from express, 302 redirect to a virtual directory in a reverse proxy like Nginx
+            if (config.offloadMedia) {
+              // Path controlled by config.offloadMedia and config.offloadDownloadPath
+              // By default: /media/download/VoiceWork/RJ123456/subdirs/track.mp3
+              // If the folder is deeper: /media/download/VoiceWork/second/RJ123456/subdirs/track.mp3
+              const baseUrl = config.offloadDownloadPath;
+              let offloadUrl = joinFragments(baseUrl, rootFolder.name, work.dir, track.subtitle || '', track.title);
+              if (process.platform === 'win32') {
+                offloadUrl = offloadUrl.replace(/\\/g, '/');
               }
-            })
-            .catch(err => next(err));
-        } else {
-          res.status(500).send({ error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.` });
-        }
-      });
-  }
-);
+
+              // Note: you should set 'Content-Disposition: attachment' header in your reverse proxy for the download virtual directory
+              // By default the directory is /media/download
+              res.redirect(offloadUrl);
+            } else {
+              // By default, serve file through express
+              res.download(path.join(rootFolder.path, work.dir, track.subtitle || '', track.title));
+            }
+          })
+          .catch(err => next(err));
+      } else {
+        res.status(500).send({ error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.` });
+      }
+    });
+});
 
 router.get('/check-lrc/:id/:index', param('id').isInt(), param('index').isInt(), (req, res, next) => {
   if (!isValidRequest(req, res)) return;

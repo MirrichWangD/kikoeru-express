@@ -10,7 +10,9 @@ const { config } = require('../config');
 // '.ass' only support show on file list, not for play lyric
 const supportedSubtitleExtList = ['.lrc', '.srt', '.ass', '.vtt'];
 const supportedImageExtList = ['.jpg', '.jpeg', '.png', '.webp'];
-const supportedMediaExtList = ['.mp3', '.ogg', '.opus', '.wav', '.aac', '.flac', '.webm', '.mp4', '.m4a', '.mka'];
+const supportedAudioExtList = ['.mp3', '.ogg', '.opus', '.wav', '.aac', '.flac', '.m4a', '.mka'];
+const supportedVideoExtList = ['.mp4', '.mkv', '.webm'];
+const supportedMediaExtList = supportedAudioExtList + supportedVideoExtList;
 const supportedExtList = ['.txt', '.pdf'] + supportedImageExtList + supportedMediaExtList + supportedSubtitleExtList;
 
 /**
@@ -37,7 +39,7 @@ const getTrackList = async (id, dir, readMemo = {}) => {
         title: path.basename(file),
         subtitle: dirName === '.' ? null : dirName,
         ext: path.extname(file).toLowerCase(),
-        shortFilePath,
+        shortFilePath
       };
     }),
     [v => v.subtitle, v => v.title, v => v.ext]
@@ -48,9 +50,9 @@ const getTrackList = async (id, dir, readMemo = {}) => {
     title: file.title,
     subtitle: file.subtitle,
     hash: `${id}/${index}`,
-    urlFilePath: path.join(`RJ${id}`, file.shortFilePath),
+    mediaPath: path.join(`RJ${id}`, file.shortFilePath),
     shortFilePath: file.shortFilePath,
-    ext: file.ext,
+    ext: file.ext
   }));
 
   const memo = readMemo || {};
@@ -59,6 +61,10 @@ const getTrackList = async (id, dir, readMemo = {}) => {
   sortedHashedFiles.forEach(file => {
     if (supportedMediaExtList.includes(file.ext) && memo[file.shortFilePath] !== undefined) {
       file.duration = memo[file.shortFilePath].duration;
+      delete file.shortFilePath;
+    }
+    if (process.platform === 'win32') {
+      file.mediaPath = file.mediaPath.replace(/\\/g, '/');
     }
   });
 
@@ -84,7 +90,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         folder = {
           type: 'folder',
           title: folderName,
-          children: [],
+          children: []
         };
         fatherFolder.push(folder);
       }
@@ -127,14 +133,11 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
       offloadStreamUrl = offloadStreamUrl.replace(/\\/g, '/');
       offloadDownloadUrl = offloadDownloadUrl.replace(/\\/g, '/');
     }
-
-    const textBaseUrl = '/api/media/stream/';
-    const mediaStreamBaseUrl = '/api/media/stream/';
-    const mediaDownloadBaseUrl = '/api/media/download/';
-    const textStreamBaseUrl = textBaseUrl + track.urlFilePath; // Handle charset detection internally with jschardet
-    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.urlFilePath;
-    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.urlFilePath;
-    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.urlFilePath;
+    // Handle charset detection internally with jschardet
+    const textStreamBaseUrl = '/api/media/stream/' + track.mediaPath;
+    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : '/api/media/download/' + track.mediaPath;
+    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : '/api/media/stream/' + track.mediaPath;
+    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : '/api/media/download/' + track.mediaPath;
 
     if ((supportedSubtitleExtList + ['.txt']).includes(track.ext)) {
       fatherFolder.push({
@@ -143,7 +146,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         title: track.title,
         workTitle,
         mediaStreamUrl: textStreamBaseUrl,
-        mediaDownloadUrl: textDownloadBaseUrl,
+        mediaDownloadUrl: textDownloadBaseUrl
       });
     } else if (supportedImageExtList.includes(track.ext)) {
       fatherFolder.push({
@@ -152,7 +155,17 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         title: track.title,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl,
+        mediaDownloadUrl
+      });
+    } else if (supportedVideoExtList.includes(track.ext)) {
+      fatherFolder.push({
+        type: 'video',
+        hash: track.hash,
+        title: track.title,
+        duration: track.duration,
+        workTitle,
+        mediaStreamUrl,
+        mediaDownloadUrl
       });
     } else if (track.ext === '.pdf') {
       fatherFolder.push({
@@ -161,7 +174,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         title: track.title,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl,
+        mediaDownloadUrl
       });
     } else {
       fatherFolder.push({
@@ -171,7 +184,7 @@ const toTree = (tracks, workTitle, workDir, rootFolder) => {
         duration: track.duration,
         workTitle,
         mediaStreamUrl,
-        mediaDownloadUrl,
+        mediaDownloadUrl
       });
     }
   });
@@ -206,7 +219,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
     const absolutePath = path.resolve(rootFolder.path, current, folder);
     const relativePath = path.join(current, folder);
     const folderInfo = fs.statSync(absolutePath);
-    const addTime = formatDatetime((folderInfo.birthtime.getTime() ? folderInfo.birthtime : folderInfo.mtime));
+    const addTime = formatDatetime(folderInfo.birthtime.getTime() ? folderInfo.birthtime : folderInfo.mtime);
 
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -220,7 +233,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
             relativePath,
             rootFolderName: rootFolder.name,
             addTime: addTime,
-            id: folder.match(/RJ(\d+)/)[1],
+            id: folder.match(/RJ(\d+)/)[1]
           };
         } else if (depth + 1 < config.scannerMaxRecursionDepth) {
           // 若文件夹名称中不含有RJ号，就进入该文件夹内部
@@ -234,7 +247,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
           console.log(' ! 无法访问', err.path);
           callback({
             level: 'info',
-            message: ` ! 无法访问 ${err.path}`,
+            message: ` ! 无法访问 ${err.path}`
           });
         }
       } else {
@@ -291,5 +304,5 @@ module.exports = {
   supportedMediaExtList,
   supportedSubtitleExtList,
   supportedImageExtList,
-  supportedExtList,
+  supportedExtList
 };
