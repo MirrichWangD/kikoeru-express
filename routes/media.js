@@ -122,18 +122,18 @@ router.get('/check-lrc/:id/:index', param('id').isInt(), param('index').isInt(),
             let responseSent = false;
 
             if (!work.lyric_status) {
-              res.send({ result: false, message: '不存在歌词文件', hash: '' });
+              res.send({ result: false, message: '不存在歌词文件', mediaPath: '' });
             } else {
               const lrcFileName = track.title.substring(0, track.title.lastIndexOf('.')) + '.lrc';
               // 文件名、子目录名相同
               tracks.forEach(trackItem => {
                 if (trackItem.title === lrcFileName) {
-                  res.send({ result: true, message: '找到歌词文件', hash: trackItem.hash });
+                  res.send({ result: true, message: '找到歌词文件', mediaPath: trackItem.mediaPath });
                   responseSent = true;
                 }
               });
               if (!responseSent) {
-                res.send({ result: false, message: '该文件不存在歌词文件', hash: '' });
+                res.send({ result: false, message: '该文件不存在歌词文件', mediaPath: '' });
               }
             }
           })

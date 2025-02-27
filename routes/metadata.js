@@ -108,7 +108,7 @@ router.get(
             .orderBy(order, sort)
             .orderBy([
               { column: 'release', order: 'desc' },
-              { column: 'id', order: 'desc' },
+              { column: 'id', order: 'desc' }
             ])
             .offset(offset)
             .limit(pageSize);
@@ -126,7 +126,7 @@ router.get(
             .orderBy(order, sort)
             .orderBy([
               { column: 'release', order: 'desc' },
-              { column: 'id', order: 'desc' },
+              { column: 'id', order: 'desc' }
             ])
             .offset(offset)
             .limit(pageSize);
@@ -139,7 +139,7 @@ router.get(
         works,
         page: currentPage,
         pageSize: pageSize,
-        totalCount: totalCount[0]['count'],
+        totalCount: totalCount[0]['count']
       });
     } catch (err) {
       res.status(500).send({ error: '服务器错误' });
@@ -163,7 +163,7 @@ router.get('/:field(circle|tag|va)s/:id', param('field').isIn(['circle', 'tag', 
         const errorMessage = {
           circle: `社团${req.params.id}不存在`,
           tag: `标签${req.params.id}不存在`,
-          va: `声优${req.params.id}不存在`,
+          va: `声优${req.params.id}不存在`
         };
         res.status(404).send({ error: errorMessage[req.params.field] });
       }
@@ -205,7 +205,7 @@ router.get('/search', async (req, res, next) => {
           .orderBy(order, sort)
           .orderBy([
             { column: 'release', order: 'desc' },
-            { column: 'id', order: 'desc' },
+            { column: 'id', order: 'desc' }
           ]);
       }
     } else {
@@ -219,7 +219,7 @@ router.get('/search', async (req, res, next) => {
           .orderBy(order, sort)
           .orderBy([
             { column: 'release', order: 'desc' },
-            { column: 'id', order: 'desc' },
+            { column: 'id', order: 'desc' }
           ]);
       }
     }
@@ -230,12 +230,12 @@ router.get('/search', async (req, res, next) => {
       works,
       page: currentPage,
       pageSize: pageSize,
-      totalCount: totalCount[0]['count'],
+      totalCount: totalCount[0]['count']
     });
   } catch (err) {
     res.status(500).send({ error: '查询过程中出错' });
     console.error(err);
-    // next(err);
+    next(err);
   }
 });
 
