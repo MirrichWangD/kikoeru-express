@@ -52,6 +52,11 @@ async function getFileDuration(filePath) {
   }
 }
 
+// 标准化标题字符串，忽略符号差异和格式差异
+function normalizeStr(s) {
+  return s.toLowerCase().replace(/[♡♪…～・\u3000\s\-]/g, '').normalize('NFKC'); // Unicode标准化，将全角字符转为半角
+}
+
 /**
  * 从文件系统，抓取单个作品本地文件的杂项信息
  * TODO: 文件hash
@@ -85,7 +90,7 @@ const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => {
       .map(async file => {
         const shortPath = file.replace(path.join(dir, '/'), '');
         const ext = path.extname(shortPath).toLowerCase();
-        const title = path.basename(shortPath).toLowerCase().replace(ext, '');
+        const title = normalizeStr(path.basename(shortPath)).replace(ext, '');
 
         const oldFileMemo = oldMemo[shortPath];
         const fstat = await fs.promises.stat(file);
@@ -115,7 +120,7 @@ const scrapeWorkMemo = async (work_id, dir, oldMemo = {}) => {
     trackDuration.forEach(item => {
       if (!uniqueTitle.has(item.title)) {
         uniqueTitle.set(item.title, item);
-        workDuration += item.duration;
+        workDuration += item.duration || 0;
       }
     });
     workDuration = Math.round(workDuration);
