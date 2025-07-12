@@ -38,7 +38,7 @@ const scrapeStaticWorkMetadataFromDLsite = (id, language) =>
         AGE_RATINGS = '年龄指定';
         GENRE = '分类';
         VA = '声优';
-        RELEASE = '贩卖日';
+        RELEASE = '发售日';
         SERIES = '系列名';
     }
 
@@ -225,9 +225,11 @@ const scrapeDynamicWorkMetadataFromDLsite = id =>
         work.rate_count_detail = data.rate_count_detail; // 评价分布明细
         work.review_count = data.review_count; // 评论数量
         work.price = data.price; // 价格
+        work.release = data.regist_date.slice(0, 10); // 发售日期
         if (data.rank.length) {
           work.rank = data.rank; // 成绩
         }
+        console.log(work);
         resolve(work);
       })
       .catch(error => {
