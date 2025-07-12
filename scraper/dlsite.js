@@ -229,7 +229,6 @@ const scrapeDynamicWorkMetadataFromDLsite = id =>
         if (data.rank.length) {
           work.rank = data.rank; // 成绩
         }
-        console.log(work);
         resolve(work);
       })
       .catch(error => {
