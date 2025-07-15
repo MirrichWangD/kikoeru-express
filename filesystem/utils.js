@@ -219,7 +219,7 @@ async function* getFolderList(rootFolder, current = '', depth = 0, callback = fu
     const absolutePath = path.resolve(rootFolder.path, current, folder);
     const relativePath = path.join(current, folder);
     const folderInfo = fs.statSync(absolutePath);
-    const addTime = formatDatetime(folderInfo.birthtime.getTime() ? folderInfo.birthtime : folderInfo.mtime);
+    const addTime = formatDatetime(folderInfo.mtime);
 
     try {
       // eslint-disable-next-line no-await-in-loop
